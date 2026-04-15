@@ -17,27 +17,27 @@ const stack: StackItem[] = [
   {
     group: 'Core',
     name: 'React + TypeScript',
-    description: 'โครงสร้างหลักของหน้าและ type safety พร้อมสำหรับ component-driven development',
+    description: 'Core app structure with type safety, ready for component-driven development.',
   },
   {
     group: 'Build Tool',
     name: 'Vite',
-    description: 'dev server เร็ว, HMR ลื่น และ build pipeline เรียบง่ายสำหรับ scale ต่อ',
+    description: 'Fast dev server, smooth HMR, and a simple build pipeline that can scale with the project.',
   },
   {
     group: 'UI / Styling',
     name: 'Tailwind CSS',
-    description: 'utility-first styling ที่วาง theme token และ design language กลางของโปรเจกต์ไว้แล้ว',
+    description: 'Utility-first styling with shared theme tokens and a clear design language already in place.',
   },
   {
     group: 'Component System',
     name: 'shadcn/ui style',
-    description: 'copy component มาใช้และ custom เองได้ผ่าน `src/components/ui` โดยไม่ล็อกกับ package',
+    description: 'Copy and customize components from `src/components/ui` without being locked to a package.',
   },
   {
     group: 'State',
     name: 'Zustand',
-    description: 'เริ่มต้น store แบบเบา ๆ สำหรับ shared state และค่อยแตก slice ตาม feature ได้',
+    description: 'A lightweight shared-state store that can grow into feature-based slices later.',
   },
 ]
 
