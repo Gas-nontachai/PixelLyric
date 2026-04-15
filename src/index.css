@@ -1,0 +1,78 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap');
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@theme inline {
+  --font-sans: "Plus Jakarta Sans", sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 6px);
+}
+
+:root {
+  --background: #fff8ee;
+  --foreground: #1d1a16;
+  --card: rgba(255, 252, 246, 0.82);
+  --card-foreground: #1d1a16;
+  --popover: #fffcf6;
+  --popover-foreground: #1d1a16;
+  --primary: #b96224;
+  --primary-foreground: #fff8ef;
+  --secondary: #e8d1b4;
+  --secondary-foreground: #432714;
+  --muted: #f1e5d5;
+  --muted-foreground: #6f6256;
+  --accent: #d6843c;
+  --accent-foreground: #2d180a;
+  --destructive: #b83e31;
+  --border: rgba(73, 45, 22, 0.14);
+  --input: rgba(73, 45, 22, 0.1);
+  --ring: rgba(185, 98, 36, 0.35);
+  --radius: 1.25rem;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply min-h-screen bg-background font-sans text-foreground;
+  }
+
+  button {
+    @apply cursor-pointer;
+  }
+
+  #root {
+    @apply min-h-screen;
+  }
+}
