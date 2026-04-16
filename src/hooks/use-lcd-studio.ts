@@ -1,4 +1,4 @@
-import { type ChangeEvent, useCallback, useEffect, useRef, useState } from 'react'
+import { startTransition, type ChangeEvent, useCallback, useEffect, useRef, useState } from 'react'
 
 import {
   DEFAULT_DURATION_MS,
@@ -209,7 +209,6 @@ export function useLcdStudio() {
     const driftSeconds = Math.abs(audioElement.currentTime - targetSeconds)
     const syncState = audioSyncRef.current
     const hasTimelineJump =
-      syncState.lastPageIndex !== pageIndex ||
       targetMs < syncState.lastTargetMs ||
       Math.abs(targetMs - syncState.lastTargetMs) > 1200
     const shouldCorrectDrift =
@@ -372,12 +371,14 @@ export function useLcdStudio() {
         shouldStop = syncAudioTailPlayback(latestPlayback.isPlaying)
       }
 
-      setPlayback((currentPlayback) => ({
-        ...currentPlayback,
-        activePageIndex: nextPageIndex,
-        isPlaying: shouldStop ? false : currentPlayback.isPlaying,
-        pageProgressMs: nextProgressMs,
-      }))
+      startTransition(() => {
+        setPlayback((currentPlayback) => ({
+          ...currentPlayback,
+          activePageIndex: nextPageIndex,
+          isPlaying: shouldStop ? false : currentPlayback.isPlaying,
+          pageProgressMs: nextProgressMs,
+        }))
+      })
 
       animationFrameId = requestAnimationFrame(tick)
     }
@@ -411,18 +412,18 @@ export function useLcdStudio() {
   }, [countdownRemaining])
 
   useEffect(() => {
+    const latestPlayback = playbackRef.current
+
     syncAudioToTimeline({
-      pageIndex: playback.activePageIndex,
-      pageProgressMs: playbackRef.current.pageProgressMs,
-      shouldPlay: playback.isPlaying,
+      pageIndex: latestPlayback.activePageIndex,
+      pageProgressMs: latestPlayback.pageProgressMs,
+      shouldPlay: latestPlayback.isPlaying,
       forceSeek: true,
     })
   }, [
     audioTrack?.objectUrl,
     audioTrack?.trimStartMs,
     audioTrack?.trimEndMs,
-    playback.activePageIndex,
-    playback.isPlaying,
     syncAudioToTimeline,
   ])
 

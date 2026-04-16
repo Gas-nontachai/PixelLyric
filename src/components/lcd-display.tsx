@@ -1,4 +1,4 @@
-import { type CSSProperties } from 'react'
+import { memo, type CSSProperties } from 'react'
 
 import { FONT, type PixelChar } from '@/components/lcd-font'
 
@@ -10,6 +10,40 @@ type LcdDisplayProps = {
 
 const FALLBACK_CHAR = ' '
 const FONT_MAP: Record<string, PixelChar> = FONT
+const CELL_WIDTH = 28
+const CELL_HEIGHT = 44
+const CELL_PADDING_X = 3
+const CELL_PADDING_Y = 3
+const DOT_WIDTH = 3.6
+const DOT_HEIGHT = 3.875
+const DOT_GAP_X = 1
+const DOT_GAP_Y = 1
+function createGlyphDataUri(pixels: PixelChar) {
+  const circles: string[] = []
+
+  for (let rowIndex = 0; rowIndex < pixels.length; rowIndex += 1) {
+    for (let columnIndex = 0; columnIndex < pixels[rowIndex].length; columnIndex += 1) {
+      const isOn = pixels[rowIndex][columnIndex] === 1
+      const x = CELL_PADDING_X + columnIndex * (DOT_WIDTH + DOT_GAP_X) + DOT_WIDTH / 2
+      const y = CELL_PADDING_Y + rowIndex * (DOT_HEIGHT + DOT_GAP_Y) + DOT_HEIGHT / 2
+      const fill = isOn ? '#243f08' : 'rgba(72,97,24,0.12)'
+
+      circles.push(`<ellipse cx="${x}" cy="${y}" rx="${DOT_WIDTH / 2}" ry="${DOT_HEIGHT / 2}" fill="${fill}" />`)
+    }
+  }
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${CELL_WIDTH} ${CELL_HEIGHT}" fill="none"><rect width="${CELL_WIDTH}" height="${CELL_HEIGHT}" rx="3" fill="rgba(116,149,32,0.44)"/>${circles.join('')}</svg>`
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`
+}
+
+const GLYPH_STYLE_MAP: Record<string, CSSProperties> = Object.fromEntries(
+  Object.entries(FONT_MAP).map(([character, pixels]) => [
+    character,
+    {
+      backgroundImage: createGlyphDataUri(pixels),
+    },
+  ]),
+)
 
 function normalizeLine(line: string, columns: number) {
   return line
@@ -30,24 +64,13 @@ function buildDisplayRows(displayRows: string[], columns: number, rows: number) 
   return normalizedRows
 }
 
-function LcdCell({ character }: { character: string }) {
-  const pixels: PixelChar = FONT_MAP[character] ?? FONT_MAP[FALLBACK_CHAR]
+const LcdCell = memo(function LcdCell({ character }: { character: string }) {
+  const style = GLYPH_STYLE_MAP[character] ?? GLYPH_STYLE_MAP[FALLBACK_CHAR]
 
-  return (
-    <div className="lcd-cell" aria-hidden="true">
-      {pixels.map((row, rowIndex) =>
-        row.map((pixel, pixelIndex) => (
-          <span
-            key={`${rowIndex}-${pixelIndex}`}
-            className={pixel ? 'lcd-dot lcd-dot-on' : 'lcd-dot lcd-dot-off'}
-          />
-        )),
-      )}
-    </div>
-  )
-}
+  return <div className="lcd-cell" style={style} aria-hidden="true" />
+})
 
-export function LcdDisplay({ columns, rows, displayRows }: LcdDisplayProps) {
+function LcdDisplayComponent({ columns, rows, displayRows }: LcdDisplayProps) {
   const lines = buildDisplayRows(displayRows, columns, rows)
 
   return (
@@ -81,3 +104,15 @@ export function LcdDisplay({ columns, rows, displayRows }: LcdDisplayProps) {
     </section>
   )
 }
+
+export const LcdDisplay = memo(LcdDisplayComponent, (previousProps, nextProps) => {
+  if (previousProps.columns !== nextProps.columns || previousProps.rows !== nextProps.rows) {
+    return false
+  }
+
+  if (previousProps.displayRows.length !== nextProps.displayRows.length) {
+    return false
+  }
+
+  return previousProps.displayRows.every((row, index) => row === nextProps.displayRows[index])
+})

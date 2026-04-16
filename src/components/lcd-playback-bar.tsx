@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Hourglass, Music2, Pause, Play, RotateCcw, SkipBack, SkipForward } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -19,7 +20,7 @@ type LcdPlaybackBarProps = {
   onToggleLoop: () => void
 }
 
-export function LcdPlaybackBar({
+function LcdPlaybackBarComponent({
   countdownRemaining,
   countdownSeconds,
   hasAudio,
@@ -87,3 +88,14 @@ export function LcdPlaybackBar({
     </div>
   )
 }
+
+export const LcdPlaybackBar = memo(LcdPlaybackBarComponent, (previousProps, nextProps) => {
+  return (
+    previousProps.countdownRemaining === nextProps.countdownRemaining &&
+    previousProps.countdownSeconds === nextProps.countdownSeconds &&
+    previousProps.hasAudio === nextProps.hasAudio &&
+    previousProps.isAudioPanelOpen === nextProps.isAudioPanelOpen &&
+    previousProps.isLooping === nextProps.isLooping &&
+    previousProps.isPlaying === nextProps.isPlaying
+  )
+})

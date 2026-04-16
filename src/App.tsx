@@ -72,6 +72,7 @@ function App() {
             rows={preset.rows}
             pages={pages}
             activePageIndex={playback.activePageIndex}
+            isPlaying={playback.isPlaying}
             onScreenTypeChange={editorActions.handleScreenTypeChange}
             onSelectPage={editorActions.handleSelectPage}
             onAddPage={editorActions.handleAddPage}

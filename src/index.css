@@ -849,13 +849,12 @@
 .lcd-cell {
   width: 28px;
   height: 44px;
-  padding: 3px;
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  grid-template-rows: repeat(8, 1fr);
-  gap: 1px;
+  display: block;
   border-radius: 3px;
-  background: var(--lcd-cell-bg);
+  background-color: var(--lcd-cell-bg);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
 }
 
 .lcd-dot {

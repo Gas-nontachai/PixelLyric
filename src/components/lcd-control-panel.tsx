@@ -1,4 +1,4 @@
-import { type ChangeEvent, type KeyboardEvent, useState } from 'react'
+import { memo, type ChangeEvent, type KeyboardEvent, useState } from 'react'
 import { ChevronLeft, ChevronRight, Copy, Plus, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -25,6 +25,7 @@ type LcdControlPanelProps = {
   rows: number
   pages: PageScript[]
   activePageIndex: number
+  isPlaying: boolean
   onScreenTypeChange: (event: ChangeEvent<HTMLSelectElement>) => void
   onSelectPage: (pageIndex: number) => void
   onAddPage: () => void
@@ -45,7 +46,7 @@ type LcdControlPanelProps = {
   ) => void
 }
 
-export function LcdControlPanel({
+function LcdControlPanelComponent({
   presets,
   selectedScreenType,
   rows,
@@ -255,3 +256,24 @@ export function LcdControlPanel({
     </div>
   )
 }
+
+export const LcdControlPanel = memo(LcdControlPanelComponent, (previousProps, nextProps) => {
+  const shouldIgnoreActivePageIndexChange = previousProps.isPlaying && nextProps.isPlaying
+
+  if (
+    previousProps.selectedScreenType !== nextProps.selectedScreenType ||
+    previousProps.columns !== nextProps.columns ||
+    previousProps.rows !== nextProps.rows ||
+    previousProps.isPlaying !== nextProps.isPlaying ||
+    previousProps.presets !== nextProps.presets ||
+    previousProps.pages.length !== nextProps.pages.length
+  ) {
+    return false
+  }
+
+  if (!shouldIgnoreActivePageIndexChange && previousProps.activePageIndex !== nextProps.activePageIndex) {
+    return false
+  }
+
+  return previousProps.pages.every((page, index) => page === nextProps.pages[index])
+})
