@@ -10,6 +10,7 @@ type LcdDisplayProps = {
 
 const FALLBACK_CHAR = ' '
 const FONT_MAP: Record<string, PixelChar> = FONT
+const BOARD_PADS = ['left', 'center', 'right'] as const
 const CELL_WIDTH = 28
 const CELL_HEIGHT = 44
 const CELL_PADDING_X = 3
@@ -32,7 +33,7 @@ function createGlyphDataUri(pixels: PixelChar) {
     }
   }
 
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${CELL_WIDTH} ${CELL_HEIGHT}" fill="none"><rect width="${CELL_WIDTH}" height="${CELL_HEIGHT}" rx="3" fill="rgba(116,149,32,0.44)"/>${circles.join('')}</svg>`
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${CELL_WIDTH} ${CELL_HEIGHT}" fill="none"><defs><linearGradient id="cell-sheen" x1="14" y1="0" x2="14" y2="44" gradientUnits="userSpaceOnUse"><stop stop-color="rgba(142,170,48,0.16)"/><stop offset="1" stop-color="rgba(98,123,26,0.34)"/></linearGradient></defs><rect x="0.5" y="0.5" width="27" height="43" rx="2.8" fill="url(#cell-sheen)" stroke="rgba(70,92,16,0.28)"/><path d="M1.5 3.5H26.5" stroke="rgba(214,232,139,0.18)" stroke-width="1" stroke-linecap="round"/>${circles.join('')}</svg>`
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`
 }
 
@@ -74,32 +75,51 @@ function LcdDisplayComponent({ columns, rows, displayRows }: LcdDisplayProps) {
   const lines = buildDisplayRows(displayRows, columns, rows)
 
   return (
-    <section className="lcd-board" aria-label={`LCD display preview ${columns} by ${rows}`}>
-      <div className="lcd-screw lcd-screw-top-left" />
-      <div className="lcd-screw lcd-screw-top-right" />
-      <div className="lcd-screw lcd-screw-bottom-left" />
-      <div className="lcd-screw lcd-screw-bottom-right" />
+    <section
+      className="lcd-board"
+      aria-label={`LCD display preview ${columns} by ${rows}`}
+      data-preset={`${columns}x${rows}`}
+      style={
+        {
+          '--lcd-columns': columns,
+          '--lcd-rows': rows,
+        } as CSSProperties
+      }
+    >
+      <div className="lcd-board-pads lcd-board-pads-top" aria-hidden="true">
+        {BOARD_PADS.map((pad) => (
+          <span key={`top-${pad}`} className="lcd-board-pad" />
+        ))}
+      </div>
+
+      <div className="lcd-screw lcd-screw-top-left" aria-hidden="true" />
+      <div className="lcd-screw lcd-screw-top-right" aria-hidden="true" />
+      <div className="lcd-screw lcd-screw-bottom-left" aria-hidden="true" />
+      <div className="lcd-screw lcd-screw-bottom-right" aria-hidden="true" />
 
       <div className="lcd-bezel">
-        <div className="lcd-screen">
-          <div
-            className="lcd-characters"
-            style={
-              {
-                '--lcd-columns': columns,
-                '--lcd-rows': rows,
-              } as CSSProperties
-            }
-          >
-            {lines.map((line, rowIndex) => (
-              <div key={rowIndex} className="lcd-row">
-                {line.split('').map((character, columnIndex) => (
-                  <LcdCell key={`${rowIndex}-${columnIndex}`} character={character} />
-                ))}
-              </div>
-            ))}
+        <div className="lcd-screen-frame">
+          <div className="lcd-screen-glare" aria-hidden="true" />
+          <div className="lcd-screen">
+            <div
+              className="lcd-characters"
+            >
+              {lines.map((line, rowIndex) => (
+                <div key={rowIndex} className="lcd-row">
+                  {line.split('').map((character, columnIndex) => (
+                    <LcdCell key={`${rowIndex}-${columnIndex}`} character={character} />
+                  ))}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
+      </div>
+
+      <div className="lcd-board-pads lcd-board-pads-bottom" aria-hidden="true">
+        {BOARD_PADS.map((pad) => (
+          <span key={`bottom-${pad}`} className="lcd-board-pad" />
+        ))}
       </div>
     </section>
   )
