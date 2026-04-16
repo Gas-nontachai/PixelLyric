@@ -1,12 +1,11 @@
 import { type ChangeEvent, useRef, useState } from 'react'
-import { Music2, Pencil } from 'lucide-react'
+import { Pencil } from 'lucide-react'
 
 import { LcdAudioPanel } from '@/components/lcd-audio-panel'
 import { LcdDisplay } from '@/components/lcd-display'
 import { LcdPlaybackBar } from '@/components/lcd-playback-bar'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
-import { formatAudioTimelineLabel } from '@/lib/audio'
 import type { ProjectAudioTrack } from '@/lib/lcd'
 import type { ToastPosition, ToastVariant } from '@/hooks/use-toast'
 
@@ -149,6 +148,19 @@ export function LcdPreviewStage({
           <LcdDisplay columns={columns} rows={rows} displayRows={displayRows} />
         </div>
 
+        <div className="flex justify-center">
+          {audio.track ? (
+            <>
+              <span className="lcd-audio-tab-title">
+                Now Playing:
+                <span className="lcd-audio-tab-value">
+                  {audio.track.name}
+                </span>
+              </span>
+            </>
+          ) : null}
+        </div>
+
         <LcdPlaybackBar
           countdownRemaining={countdownRemaining}
           countdownSeconds={countdownSeconds}
@@ -165,19 +177,6 @@ export function LcdPreviewStage({
           onToggleLoop={onToggleLoop}
           onCountdownCycle={onCountdownCycle}
         />
-
-        {audio.track ? (
-          <button className="lcd-audio-tab" onClick={() => setIsAudioPanelOpen(true)}>
-            <span className="lcd-audio-tab-title">
-              <Music2 />
-              MP3 timeline
-            </span>
-            <span className="lcd-audio-tab-value">{audio.track.name}</span>
-            <span className="lcd-audio-tab-meta">
-              {formatAudioTimelineLabel(audio.track.trimStartMs)} to {formatAudioTimelineLabel(audio.track.trimEndMs)}
-            </span>
-          </button>
-        ) : null}
 
         <Dialog
           open={isAudioPanelOpen}
