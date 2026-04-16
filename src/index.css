@@ -108,6 +108,7 @@
   display: grid;
   gap: 24px;
   align-items: start;
+  position: relative;
 }
 
 .lcd-preview-panel {
@@ -164,6 +165,7 @@
   justify-content: center;
   flex-wrap: wrap;
   gap: 12px;
+  align-content: center;
 }
 
 .lcd-playback-audio-button-loaded {
@@ -191,6 +193,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
 .lcd-audio-tab-title,
@@ -536,6 +539,16 @@
   min-width: 0;
 }
 
+.lcd-editor-backdrop {
+  position: fixed;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  background: rgba(17, 21, 19, 0.3);
+  backdrop-filter: blur(4px);
+  z-index: 55;
+}
+
 .lcd-toast-region {
   position: fixed;
   z-index: 50;
@@ -640,6 +653,20 @@
 .lcd-editor-topbar {
   display: grid;
   gap: 12px;
+}
+
+.lcd-editor-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lcd-editor-heading {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
 }
 
 .lcd-editor-tabs {
@@ -783,6 +810,9 @@
 .lcd-board {
   --lcd-row-gap: 4px;
   --lcd-lines-gap: 16px;
+  --lcd-cell-width: 28px;
+  --lcd-cell-height: 44px;
+  --lcd-screen-grid-column: 28px;
   position: relative;
   display: inline-grid;
   width: max-content;
@@ -955,7 +985,7 @@
   border-radius: 2px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 18%),
-    linear-gradient(90deg, rgba(93, 118, 20, 0.05) 0, rgba(93, 118, 20, 0.05) 1px, transparent 1px, transparent 28px);
+    linear-gradient(90deg, rgba(93, 118, 20, 0.05) 0, rgba(93, 118, 20, 0.05) 1px, transparent 1px, transparent var(--lcd-screen-grid-column));
   opacity: 0.5;
   pointer-events: none;
 }
@@ -976,8 +1006,8 @@
 }
 
 .lcd-cell {
-  width: 28px;
-  height: 44px;
+  width: var(--lcd-cell-width);
+  height: var(--lcd-cell-height);
   display: block;
   border-radius: 3px;
   background-color: rgba(120, 145, 31, 0.3);
@@ -1034,33 +1064,159 @@
 }
 
 @media (min-width: 768px) and (max-width: 1099px) {
-  .lcd-workspace {
-    grid-template-columns: minmax(0, 1fr);
+  .lcd-app-shell {
+    padding: 20px;
   }
 
-  .lcd-workspace-editor-open {
-    grid-template-columns: minmax(0, 1fr) 320px;
+  .lcd-workspace {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
   }
 
   .lcd-editor-dock {
-    overflow: hidden;
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    bottom: 20px;
+    width: min(304px, calc(100vw - 40px));
+    max-width: calc(100vw - 40px);
+    overflow: auto;
+    z-index: 60;
     transition:
-      width 180ms ease,
       opacity 180ms ease,
       transform 180ms ease;
   }
 
   .lcd-workspace-editor-closed .lcd-editor-dock {
-    width: 0;
     opacity: 0;
     pointer-events: none;
-    transform: translateX(12px);
+    transform: translateX(calc(100% + 20px));
   }
 
   .lcd-workspace-editor-open .lcd-editor-dock {
-    width: 320px;
     opacity: 1;
     transform: translateX(0);
+  }
+
+  .lcd-preview-shell,
+  .lcd-editor {
+    padding: 20px;
+    border-radius: 24px;
+  }
+
+  .lcd-preview-shell {
+    min-height: calc(100vh - 40px);
+    gap: 20px;
+  }
+
+  .lcd-preview-header {
+    gap: 12px;
+  }
+
+  .lcd-preview-header h1 {
+    font-size: clamp(2rem, 5vw, 2.6rem);
+  }
+
+  .lcd-preview-board-wrap {
+    min-height: 460px;
+    padding: 18px;
+    border-radius: 26px;
+  }
+
+  .lcd-playback-bar {
+    gap: 10px;
+  }
+
+  .lcd-board {
+    --lcd-row-gap: 3px;
+    --lcd-lines-gap: 14px;
+    --lcd-cell-width: 24px;
+    --lcd-cell-height: 38px;
+    --lcd-screen-grid-column: 24px;
+    padding: 38px 42px;
+    border-radius: 28px;
+  }
+
+  .lcd-board-pads {
+    left: 64px;
+    right: 64px;
+  }
+
+  .lcd-board-pad {
+    width: 104px;
+  }
+
+  .lcd-screw {
+    width: 32px;
+    height: 32px;
+  }
+
+  .lcd-screw-top-left,
+  .lcd-screw-top-right {
+    top: 14px;
+  }
+
+  .lcd-screw-top-left,
+  .lcd-screw-bottom-left {
+    left: 14px;
+  }
+
+  .lcd-screw-top-right,
+  .lcd-screw-bottom-right {
+    right: 14px;
+  }
+
+  .lcd-screw-bottom-left,
+  .lcd-screw-bottom-right {
+    bottom: 14px;
+  }
+
+  .lcd-bezel {
+    padding: 16px 16px 18px;
+  }
+
+  .lcd-bezel::before,
+  .lcd-bezel::after {
+    top: 56px;
+    bottom: 56px;
+    width: 16px;
+  }
+
+  .lcd-bezel::before {
+    left: -14px;
+  }
+
+  .lcd-bezel::after {
+    right: -14px;
+  }
+
+  .lcd-screen-frame {
+    padding: 14px 16px;
+  }
+
+  .lcd-screen-glare {
+    inset: 8px 16px auto;
+  }
+
+  .lcd-screen {
+    padding: 18px 14px;
+  }
+
+  .lcd-editor {
+    min-height: 100%;
+    gap: 16px;
+  }
+
+  .lcd-editor-topbar {
+    gap: 10px;
+  }
+
+  .lcd-editor-actions {
+    gap: 8px;
+  }
+
+  .lcd-duration-row {
+    grid-template-columns: minmax(0, 1fr) 96px;
   }
 
   .lcd-audio-summary-grid,
@@ -1069,7 +1225,7 @@
   }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 767px) {
   .lcd-app-shell {
     padding: 16px;
   }
@@ -1096,13 +1252,37 @@
     overflow-x: auto;
   }
 
+  .lcd-editor-dock {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    bottom: 16px;
+    width: min(360px, calc(100vw - 32px));
+    max-width: calc(100vw - 32px);
+    overflow: auto;
+    z-index: 60;
+    transition:
+      opacity 180ms ease,
+      transform 180ms ease;
+  }
+
   .lcd-editor-dock:not(.lcd-editor-dock-open) {
-    display: none;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(calc(100% + 16px));
+  }
+
+  .lcd-editor-dock.lcd-editor-dock-open {
+    opacity: 1;
+    transform: translateX(0);
   }
 
   .lcd-board {
     --lcd-row-gap: 3px;
     --lcd-lines-gap: 12px;
+    --lcd-cell-width: 20px;
+    --lcd-cell-height: 32px;
+    --lcd-screen-grid-column: 20px;
     padding: 30px 34px;
     border-radius: 24px;
   }
@@ -1166,6 +1346,10 @@
     padding: 12px;
   }
 
+  .lcd-editor-header-row {
+    align-items: flex-start;
+  }
+
   .lcd-dialog-card {
     padding: 16px;
     border-radius: 22px;
@@ -1225,14 +1409,9 @@
     gap: var(--lcd-row-gap);
   }
 
-  .lcd-cell {
-    width: 20px;
-    height: 32px;
-    gap: 1px;
-  }
 }
 
-@media (min-width: 721px) {
+@media (min-width: 768px) {
   .lcd-editor-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

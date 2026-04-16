@@ -1,5 +1,5 @@
 import { memo, type ChangeEvent, type KeyboardEvent, useState } from 'react'
-import { ChevronLeft, ChevronRight, Copy, Plus, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Copy, Plus, Trash2, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -26,6 +26,8 @@ type LcdControlPanelProps = {
   pages: PageScript[]
   activePageIndex: number
   isPlaybackLocked: boolean
+  canCloseEditor: boolean
+  onCloseEditor: () => void
   onScreenTypeChange: (event: ChangeEvent<HTMLSelectElement>) => void
   onSelectPage: (pageIndex: number) => void
   onAddPage: () => void
@@ -53,6 +55,8 @@ function LcdControlPanelComponent({
   pages,
   activePageIndex,
   isPlaybackLocked,
+  canCloseEditor,
+  onCloseEditor,
   onScreenTypeChange,
   onSelectPage,
   onAddPage,
@@ -110,6 +114,15 @@ function LcdControlPanelComponent({
       aria-disabled={isPlaybackLocked}
     >
       <div className="lcd-editor-topbar">
+        <div className="lcd-editor-header-row">
+          <span className="lcd-editor-heading">Editor</span>
+          {canCloseEditor ? (
+            <Button size="icon" variant="outline" onClick={onCloseEditor} aria-label="Close editor">
+              <X />
+            </Button>
+          ) : null}
+        </div>
+
         <div className="lcd-editor-tabs" role="tablist" aria-label="Pages">
           {pages.map((page, pageIndex) => (
             <button
@@ -276,6 +289,7 @@ export const LcdControlPanel = memo(LcdControlPanelComponent, (previousProps, ne
     previousProps.columns !== nextProps.columns ||
     previousProps.rows !== nextProps.rows ||
     previousProps.isPlaybackLocked !== nextProps.isPlaybackLocked ||
+    previousProps.canCloseEditor !== nextProps.canCloseEditor ||
     previousProps.presets !== nextProps.presets ||
     previousProps.pages.length !== nextProps.pages.length
   ) {

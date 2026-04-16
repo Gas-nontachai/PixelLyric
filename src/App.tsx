@@ -26,10 +26,13 @@ function App() {
   } =
     useLcdStudio()
 
+  const isOverlayEditor = viewportMode !== 'desktop'
+
   const appClassName = [
     'lcd-workspace',
     isEditorOpen ? 'lcd-workspace-editor-open' : 'lcd-workspace-editor-closed',
     isMobile ? 'lcd-workspace-mobile' : '',
+    isOverlayEditor ? 'lcd-workspace-editor-overlay' : '',
   ]
     .filter(Boolean)
     .join(' ')
@@ -75,6 +78,8 @@ function App() {
             pages={pages}
             activePageIndex={playback.activePageIndex}
             isPlaybackLocked={isPlaybackLocked}
+            canCloseEditor={isOverlayEditor}
+            onCloseEditor={toggleEditor}
             onScreenTypeChange={editorActions.handleScreenTypeChange}
             onSelectPage={editorActions.handleSelectPage}
             onAddPage={editorActions.handleAddPage}
@@ -89,6 +94,15 @@ function App() {
             onShowToast={showToast}
           />
         </aside>
+
+        {isOverlayEditor && isEditorOpen ? (
+          <button
+            type="button"
+            className="lcd-editor-backdrop"
+            aria-label="Close editor"
+            onClick={toggleEditor}
+          />
+        ) : null}
       </section>
       <LcdToastRegion toasts={toasts}  />
     </main>
