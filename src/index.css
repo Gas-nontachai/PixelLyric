@@ -134,16 +134,197 @@
   gap: 16px;
 }
 
+.lcd-preview-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.lcd-preview-title-block {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
 .lcd-preview-header h1 {
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(2rem, 4vw, 3rem);
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
   line-height: 1;
   letter-spacing: -0.05em;
 }
 
+.lcd-project-name-row {
+  display: grid;
+  gap: 6px;
+}
+
+.lcd-project-name-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  max-width: min(100%, 520px);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--foreground);
+  text-align: left;
+  cursor: text;
+}
+
+.lcd-project-name-button:hover .lcd-project-name-hover-hint,
+.lcd-project-name-button:focus-visible .lcd-project-name-hover-hint {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.lcd-project-name-text {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4.4vw, 3.2rem);
+  line-height: 0.95;
+  letter-spacing: -0.06em;
+  overflow-wrap: anywhere;
+}
+
+.lcd-project-name-dirty {
+  align-self: flex-start;
+  color: var(--primary);
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.lcd-project-name-hover-hint {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 12px);
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(17, 34, 23, 0.92);
+  color: #f8fcf2;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.lcd-project-name-input {
+  width: min(100%, 520px);
+  padding: 10px 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(12, 41, 19, 0.12);
+  background: rgba(245, 251, 241, 0.96);
+  color: var(--foreground);
+  font-family: var(--font-display);
+  font-size: clamp(1.4rem, 3vw, 2rem);
+  line-height: 1;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.lcd-project-name-input:focus {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
 .lcd-toggle-button {
   background: rgba(255, 255, 255, 0.82);
+}
+
+.lcd-icon-dropdown {
+  position: relative;
+}
+
+.lcd-icon-dropdown-trigger {
+  position: relative;
+  width: auto;
+  min-width: 58px;
+  padding-inline: 14px 12px;
+  gap: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.lcd-icon-dropdown-trigger-open {
+  background: rgba(220, 231, 180, 0.52);
+  border-color: rgba(144, 180, 47, 0.4);
+}
+
+.lcd-icon-dropdown-trigger-chevron {
+  opacity: 0.65;
+}
+
+.lcd-icon-dropdown-tooltip {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 12px);
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(17, 34, 23, 0.92);
+  color: #f8fcf2;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.lcd-icon-dropdown:hover .lcd-icon-dropdown-tooltip,
+.lcd-icon-dropdown:focus-within .lcd-icon-dropdown-tooltip {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.lcd-icon-dropdown-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  min-width: 220px;
+  padding: 10px;
+  border-radius: 20px;
+  border: 1px solid rgba(17, 34, 23, 0.1);
+  background: rgba(252, 255, 248, 0.98);
+  box-shadow: 0 20px 48px rgba(20, 42, 24, 0.14);
+  backdrop-filter: blur(10px);
+  display: grid;
+  gap: 6px;
+  z-index: 30;
+}
+
+.lcd-icon-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 12px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--foreground);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    transform 160ms ease;
+}
+
+.lcd-icon-dropdown-item:hover,
+.lcd-icon-dropdown-item:focus-visible {
+  background: rgba(144, 180, 47, 0.14);
+  transform: translateX(1px);
+  outline: none;
 }
 
 .lcd-preview-board-wrap {
@@ -1113,6 +1294,14 @@
     gap: 12px;
   }
 
+  .lcd-preview-header-actions {
+    gap: 10px;
+  }
+
+  .lcd-project-name-text {
+    font-size: clamp(1.8rem, 4vw, 2.5rem);
+  }
+
   .lcd-preview-header h1 {
     font-size: clamp(2rem, 5vw, 2.6rem);
   }
@@ -1332,6 +1521,25 @@
 
   .lcd-preview-header {
     align-items: flex-start;
+  }
+
+  .lcd-preview-header-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .lcd-project-name-text {
+    font-size: clamp(1.7rem, 7vw, 2.5rem);
+  }
+
+  .lcd-project-name-input {
+    width: 100%;
+  }
+
+  .lcd-icon-dropdown-panel {
+    left: 0;
+    right: auto;
+    min-width: min(220px, calc(100vw - 68px));
   }
 
   .lcd-duration-row {

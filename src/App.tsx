@@ -1,6 +1,9 @@
+import { useCallback, useEffect } from 'react'
+
 import { LcdControlPanel } from '@/components/lcd-control-panel'
 import { LcdPreviewStage } from '@/components/lcd-preview-stage'
 import { useLcdStudio } from '@/hooks/use-lcd-studio'
+import { useProjectPersistence } from '@/hooks/use-project-persistence'
 import { useResponsiveEditorDock } from '@/hooks/use-responsive-editor-dock'
 import { useToast } from '@/hooks/use-toast'
 import { useViewportMode } from '@/hooks/use-viewport-mode'
@@ -17,16 +20,30 @@ function App() {
     pages,
     playback,
     audio,
+    projectName,
+    isDirty,
     countdownRemaining,
     countdownSeconds,
     displayRows,
     editorActions,
     audioActions,
+    projectActions,
+    projectAutosaveKey,
     playbackActions,
   } =
     useLcdStudio()
 
   const isOverlayEditor = viewportMode !== 'desktop'
+  const {
+    createSnapshot,
+    loadSnapshot,
+    newProject,
+    renameProject,
+    saveProject,
+    saveProjectAs,
+    exportProject,
+    importProjectFile,
+  } = projectActions
 
   const appClassName = [
     'lcd-workspace',
@@ -38,6 +55,79 @@ function App() {
     .join(' ')
   const isPlaybackLocked = playback.isPlaying
 
+  const handleProjectExport = exportProject
+  const handleProjectNew = newProject
+  const handleProjectRename = renameProject
+  const handleProjectSave = saveProject
+  const handleProjectSaveAs = saveProjectAs
+
+  const handleProjectImport = importProjectFile
+
+  const handleRestoreResult = useCallback(
+    (result: { ok: boolean; message?: string }) => {
+      if (!result.message) {
+        return
+      }
+
+      showToast(result.message, {
+        position: 'top-right',
+        variant: result.ok ? 'success' : 'error',
+      })
+    },
+    [showToast],
+  )
+
+  const handleAutosaveError = useCallback(
+    (message: string) => {
+      showToast(message, {
+        position: 'top-right',
+        variant: 'error',
+      })
+    },
+    [showToast],
+  )
+
+  const handleProjectSaveShortcut = useCallback(async (saveAs = false) => {
+    const result = saveAs ? await saveProjectAs(window.prompt('Save project as', projectName) ?? undefined) : await saveProject()
+
+    if (result.message) {
+      showToast(result.message, {
+        position: 'top-right',
+        variant: result.ok ? 'success' : 'error',
+      })
+    }
+  }, [projectName, saveProject, saveProjectAs, showToast])
+
+  useProjectPersistence({
+    autosaveKey: projectAutosaveKey,
+    createSnapshot,
+    loadSnapshot,
+    onRestoreResult: handleRestoreResult,
+    onAutosaveError: handleAutosaveError,
+  })
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 's') {
+        return
+      }
+
+      event.preventDefault()
+
+      if (event.repeat) {
+        return
+      }
+
+      void handleProjectSaveShortcut(event.shiftKey)
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [handleProjectSaveShortcut])
+
   return (
     <main className="lcd-app-shell">
       <section className={appClassName}>
@@ -46,6 +136,8 @@ function App() {
           columns={preset.columns}
           rows={preset.rows}
           displayRows={displayRows}
+          projectName={projectName}
+          isDirty={isDirty}
           countdownRemaining={countdownRemaining}
           countdownSeconds={countdownSeconds}
           isEditorOpen={isEditorOpen}
@@ -61,6 +153,12 @@ function App() {
           onNext={playbackActions.next}
           onPause={playbackActions.pause}
           onPlay={playbackActions.play}
+          onProjectNew={handleProjectNew}
+          onProjectRename={handleProjectRename}
+          onProjectSave={handleProjectSave}
+          onProjectSaveAs={handleProjectSaveAs}
+          onProjectExport={handleProjectExport}
+          onProjectImport={handleProjectImport}
           onPrev={playbackActions.prev}
           onRestart={playbackActions.restart}
           onShowToast={showToast}
