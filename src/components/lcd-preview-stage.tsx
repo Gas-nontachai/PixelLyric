@@ -1,5 +1,5 @@
 import { type ChangeEvent, type KeyboardEvent, useEffect, useRef, useState } from 'react'
-import { Download, FileCog, FolderOpen, Pencil, Plus, Save } from 'lucide-react'
+import { FileCog, Pencil } from 'lucide-react'
 
 import { LcdAudioPanel } from '@/components/lcd-audio-panel'
 import { LcdDisplay } from '@/components/lcd-display'
@@ -7,20 +7,20 @@ import { LcdPlaybackBar } from '@/components/lcd-playback-bar'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { IconDropdownMenu } from '@/components/ui/icon-dropdown-menu'
-import type { ProjectAudioTrack } from '@/lib/lcd'
+import { PROJECT_MENU_ITEMS } from '@/configs/project-menu'
 import {
   isProjectFilePickerAbort,
   openProjectFileWithPicker,
   supportsProjectFileSystemAccess,
-  type ProjectFileHandle,
 } from '@/lib/project-file-system'
-import type { ToastPosition, ToastVariant } from '@/hooks/use-toast'
-
-type AudioActionResult = {
-  ok: boolean
-  message?: string
-  wasClamped?: boolean
-}
+import type {
+  AudioActionResult,
+  ProjectActionResult,
+  ProjectAudioTrack,
+  ProjectFileHandle,
+  ToastPosition,
+  ToastVariant,
+} from '@/types'
 
 type PreviewAudioState = {
   track: ProjectAudioTrack | null
@@ -56,15 +56,15 @@ type LcdPreviewStageProps = {
   onNext: () => void
   onPause: () => void
   onPlay: () => void
-  onProjectNew: () => Promise<{ ok: boolean; message?: string }> | { ok: boolean; message?: string }
-  onProjectRename: (nextProjectName: string) => { ok: boolean; message?: string }
-  onProjectSave: () => Promise<{ ok: boolean; message?: string }>
-  onProjectSaveAs: (nextProjectName?: string) => Promise<{ ok: boolean; message?: string }>
-  onProjectExport: () => Promise<{ ok: boolean; message?: string }>
+  onProjectNew: () => Promise<ProjectActionResult> | ProjectActionResult
+  onProjectRename: (nextProjectName: string) => ProjectActionResult
+  onProjectSave: () => Promise<ProjectActionResult>
+  onProjectSaveAs: (nextProjectName?: string) => Promise<ProjectActionResult>
+  onProjectExport: () => Promise<ProjectActionResult>
   onProjectImport: (
     file: File | null,
     options?: { fileHandle?: ProjectFileHandle | null },
-  ) => Promise<{ ok: boolean; message?: string }>
+  ) => Promise<ProjectActionResult>
   onPrev: () => void
   onRestart: () => void
   onShowToast: (
@@ -127,7 +127,7 @@ export function LcdPreviewStage({
     projectNameInputRef.current?.select()
   }, [isRenamingProjectName])
 
-  const showProjectToast = (result: { ok: boolean; message?: string }) => {
+  const showProjectToast = (result: ProjectActionResult) => {
     if (!result.message) {
       return
     }
@@ -285,38 +285,25 @@ export function LcdPreviewStage({
     showProjectToast(result)
   }
 
-  const projectMenuItems = [
-    {
-      id: 'new-project',
-      label: 'New project',
-      icon: <Plus />,
-      onSelect: handleProjectNew,
-    },
-    {
-      id: 'open-project',
-      label: 'Open project',
-      icon: <FolderOpen />,
-      onSelect: handleOpenProjectPicker,
-    },
-    {
-      id: 'save-project',
-      label: 'Save',
-      icon: <Save />,
-      onSelect: handleProjectSave,
-    },
-    {
-      id: 'save-project-as',
-      label: 'Save As',
-      icon: <Save />,
-      onSelect: handleProjectSaveAs,
-    },
-    {
-      id: 'export-project',
-      label: 'Export JSON',
-      icon: <Download />,
-      onSelect: handleProjectExport,
-    },
-  ]
+  const projectMenuItems = PROJECT_MENU_ITEMS.map((item) => ({
+    ...item,
+    onSelect: (() => {
+      switch (item.id) {
+        case 'new-project':
+          return handleProjectNew
+        case 'open-project':
+          return handleOpenProjectPicker
+        case 'save-project':
+          return handleProjectSave
+        case 'save-project-as':
+          return handleProjectSaveAs
+        case 'export-project':
+          return handleProjectExport
+        default:
+          return () => undefined
+      }
+    })(),
+  }))
 
   return (
     <section className="lcd-preview-panel">

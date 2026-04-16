@@ -1,8 +1,7 @@
 import { startTransition, type ChangeEvent, useCallback, useEffect, useRef, useState } from 'react'
 
+import { DEFAULT_DURATION_MS, SCREEN_PRESETS } from '@/configs/lcd'
 import {
-  DEFAULT_DURATION_MS,
-  SCREEN_PRESETS,
   createBlankPage,
   createInitialPage,
   createDuplicatedPage,
@@ -14,12 +13,6 @@ import {
   normalizePageText,
   normalizeRowTexts,
   parseDurationInput,
-  type DurationUnit,
-  type LcdAnimation,
-  type PageMode,
-  type PageScript,
-  type ProjectAudioTrack,
-  type ScreenPresetId,
 } from '@/lib/lcd'
 import {
   createProjectDocument as buildProjectDocument,
@@ -31,14 +24,26 @@ import {
   parseProjectDocumentText,
   projectDocumentToState,
   serializeProjectDocument,
-  type PixelLyricProjectDocument,
 } from '@/lib/project-file'
 import {
   isProjectFilePickerAbort,
   pickProjectSaveFileHandle,
   writeProjectFile,
-  type ProjectFileHandle,
 } from '@/lib/project-file-system'
+import type {
+  AudioActionResult,
+  AudioPreviewState,
+  CountdownOption,
+  DurationUnit,
+  LcdAnimation,
+  PageMode,
+  PageScript,
+  PixelLyricProjectDocument,
+  ProjectActionResult,
+  ProjectAudioTrack,
+  ProjectFileHandle,
+  ScreenPresetId,
+} from '@/types'
 
 type PlaybackState = {
   activePageIndex: number
@@ -47,27 +52,10 @@ type PlaybackState = {
   pageProgressMs: number
 }
 
-type AudioPreviewState = {
-  isPlaying: boolean
-  positionMs: number
-}
-
-type CountdownOption = 0 | 3 | 5 | 10
 const COUNTDOWN_OPTIONS: CountdownOption[] = [0, 3, 5, 10]
 const MIN_TRIM_GAP_MS = 100
 const AUDIO_DRIFT_TOLERANCE_S = 0.45
 const AUDIO_CORRECTION_COOLDOWN_MS = 1200
-
-type AudioActionResult = {
-  ok: boolean
-  message?: string
-  wasClamped?: boolean
-}
-
-type ProjectActionResult = {
-  ok: boolean
-  message?: string
-}
 
 let untitledProjectCounter = 1
 

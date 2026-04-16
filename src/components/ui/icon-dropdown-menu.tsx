@@ -2,13 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { ChevronDown } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-
-export type IconDropdownMenuItem = {
-  id: string
-  label: string
-  icon?: ReactNode
-  onSelect: () => void | Promise<void>
-}
+import type { IconDropdownMenuItem } from '@/types'
 
 type IconDropdownMenuProps = {
   ariaLabel: string

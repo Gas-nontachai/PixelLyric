@@ -1,22 +1,27 @@
 import { memo, type ChangeEvent, type KeyboardEvent, useState } from 'react'
 import { ChevronLeft, ChevronRight, Copy, Plus, Trash2, X } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
 import {
   DURATION_UNIT_OPTIONS,
   LCD_TEXT_PLACEHOLDER,
   PAGE_ANIMATION_OPTIONS,
   PAGE_MODE_OPTIONS,
   SCROLL_ANIMATION_OPTIONS,
+} from '@/configs/lcd'
+import { Button } from '@/components/ui/button'
+import {
   formatDurationInput,
-  type DurationUnit,
-  type LcdAnimation,
-  type PageMode,
-  type PageScript,
-  type ScreenPreset,
-  type ScreenPresetId,
 } from '@/lib/lcd'
-import type { ToastPosition, ToastVariant } from '@/hooks/use-toast'
+import type {
+  DurationUnit,
+  LcdAnimation,
+  PageMode,
+  PageScript,
+  ScreenPreset,
+  ScreenPresetId,
+  ToastPosition,
+  ToastVariant,
+} from '@/types'
 
 type LcdControlPanelProps = {
   presets: ScreenPreset[]

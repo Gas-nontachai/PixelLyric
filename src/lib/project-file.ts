@@ -3,13 +3,19 @@ import {
   getPresetById,
   normalizePageText,
   normalizeRowTexts,
-  type DurationUnit,
-  type LcdAnimation,
-  type PageMode,
-  type PageScript,
-  type ProjectAudioTrack,
-  type ScreenPresetId,
 } from '@/lib/lcd'
+import type {
+  CountdownOption,
+  DurationUnit,
+  LcdAnimation,
+  PageMode,
+  PageScript,
+  PixelLyricProjectDocument,
+  PixelLyricProjectState,
+  ProjectAudioTrack,
+  ScreenPresetId,
+  SerializedProjectAudioTrack,
+} from '@/types'
 
 const PROJECT_FILE_FORMAT = 'pixelyric-project'
 const PROJECT_FILE_EXTENSION = '.pixelyric'
@@ -17,39 +23,8 @@ const PROJECT_FILE_MIME = 'application/vnd.pixelyric.project+json'
 const PROJECT_JSON_EXTENSION = '.json'
 const PROJECT_VERSION = 1
 const MIN_TRIM_GAP_MS = 100
-const COUNTDOWN_OPTIONS = [0, 3, 5, 10] as const
+const COUNTDOWN_OPTIONS: CountdownOption[] = [0, 3, 5, 10]
 const FALLBACK_PROJECT_NAME = 'Untitled'
-
-type CountdownOption = (typeof COUNTDOWN_OPTIONS)[number]
-
-type SerializedProjectAudioTrack = {
-  name: string
-  mimeType: string
-  lastModified: number
-  durationMs: number
-  trimStartMs: number
-  trimEndMs: number
-  dataBase64: string
-}
-
-export type PixelLyricProjectDocument = {
-  format: typeof PROJECT_FILE_FORMAT
-  version: typeof PROJECT_VERSION
-  projectName: string
-  savedAt: string
-  screenType: ScreenPresetId
-  countdownSeconds: CountdownOption
-  pages: PageScript[]
-  audioTrack: SerializedProjectAudioTrack | null
-}
-
-export type PixelLyricProjectState = {
-  projectName: string
-  screenType: ScreenPresetId
-  countdownSeconds: CountdownOption
-  pages: PageScript[]
-  audioTrack: ProjectAudioTrack | null
-}
 
 const serializedAudioCache = new WeakMap<File, Promise<SerializedProjectAudioTrack>>()
 

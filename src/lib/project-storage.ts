@@ -1,4 +1,4 @@
-import type { PixelLyricProjectDocument } from '@/lib/project-file'
+import type { PixelLyricProjectDocument } from '@/types'
 
 const PROJECT_DB_NAME = 'pixelyric-projects'
 const PROJECT_STORE_NAME = 'projects'

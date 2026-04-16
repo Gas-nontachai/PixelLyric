@@ -1,12 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
-import type { PixelLyricProjectDocument } from '@/lib/project-file'
 import { loadAutosavedProject, saveAutosavedProject } from '@/lib/project-storage'
-
-type ProjectActionResult = {
-  ok: boolean
-  message?: string
-}
+import type { PixelLyricProjectDocument, ProjectActionResult } from '@/types'
 
 type UseProjectPersistenceOptions = {
   autosaveKey: string

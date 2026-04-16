@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-export type ViewportMode = 'mobile' | 'tablet' | 'desktop'
+import type { ViewportMode } from '@/types'
 
 export function getViewportMode(width: number): ViewportMode {
   if (width >= 1100) {

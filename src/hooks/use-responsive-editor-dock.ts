@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import type { ViewportMode } from '@/hooks/use-viewport-mode'
+import type { ViewportMode } from '@/types'
 
 function getDefaultEditorOpen(viewportMode: ViewportMode) {
   return viewportMode === 'desktop'
