@@ -1,61 +1,198 @@
 import { type ChangeEvent } from 'react'
+import { ChevronLeft, ChevronRight, Copy, Plus, Trash2 } from 'lucide-react'
 
-import { LCD_TEXT_PLACEHOLDER, type ScreenPreset, type ScreenPresetId } from '@/lib/lcd'
+import { Button } from '@/components/ui/button'
+import {
+  DURATION_UNIT_OPTIONS,
+  LCD_TEXT_PLACEHOLDER,
+  PAGE_ANIMATION_OPTIONS,
+  PAGE_MODE_OPTIONS,
+  SCROLL_ANIMATION_OPTIONS,
+  formatDurationInput,
+  type DurationUnit,
+  type LcdAnimation,
+  type PageMode,
+  type PageScript,
+  type ScreenPreset,
+  type ScreenPresetId,
+} from '@/lib/lcd'
 
 type LcdControlPanelProps = {
   presets: ScreenPreset[]
   selectedScreenType: ScreenPresetId
   columns: number
   rows: number
-  text: string
-  textMaxLength: number
+  pages: PageScript[]
+  activePageIndex: number
   onScreenTypeChange: (event: ChangeEvent<HTMLSelectElement>) => void
-  onTextChange: (event: ChangeEvent<HTMLTextAreaElement>) => void
+  onSelectPage: (pageIndex: number) => void
+  onAddPage: () => void
+  onDuplicatePage: (pageIndex: number) => void
+  onDeletePage: (pageIndex: number) => void
+  onMovePage: (pageIndex: number, direction: 'up' | 'down') => void
+  onPageModeChange: (pageIndex: number, mode: PageMode) => void
+  onPageAnimationChange: (pageIndex: number, animation: LcdAnimation) => void
+  onPageTextChange: (pageIndex: number, event: ChangeEvent<HTMLTextAreaElement>) => void
+  onRowTextChange: (pageIndex: number, rowIndex: number, value: string) => void
+  onDurationValueChange: (pageIndex: number, value: string) => void
+  onDurationUnitChange: (pageIndex: number, unit: DurationUnit) => void
 }
 
 export function LcdControlPanel({
   presets,
   selectedScreenType,
-  columns,
   rows,
-  text,
-  textMaxLength,
+  pages,
+  activePageIndex,
   onScreenTypeChange,
-  onTextChange,
+  onSelectPage,
+  onAddPage,
+  onDuplicatePage,
+  onDeletePage,
+  onMovePage,
+  onPageModeChange,
+  onPageAnimationChange,
+  onPageTextChange,
+  onRowTextChange,
+  onDurationValueChange,
+  onDurationUnitChange,
 }: LcdControlPanelProps) {
+  const activePage = pages[activePageIndex]
+  const animationOptions =
+    activePage.mode === 'scroll' ? SCROLL_ANIMATION_OPTIONS : PAGE_ANIMATION_OPTIONS
+
   return (
-    <div className="lcd-panel">
-      <div className="lcd-panel-heading">
-        <h1>PixelLyric</h1>
+    <div className="lcd-editor">
+      <div className="lcd-editor-topbar">
+        <div className="lcd-editor-tabs" role="tablist" aria-label="Pages">
+          {pages.map((page, pageIndex) => (
+            <button
+              key={page.id}
+              className={`lcd-editor-tab${pageIndex === activePageIndex ? ' lcd-editor-tab-active' : ''}`}
+              onClick={() => onSelectPage(pageIndex)}
+              role="tab"
+              aria-selected={pageIndex === activePageIndex}
+            >
+              {pageIndex + 1}
+            </button>
+          ))}
+        </div>
+
+        <div className="lcd-editor-actions">
+          <Button size="icon" variant="outline" onClick={() => onMovePage(activePageIndex, 'up')} disabled={activePageIndex === 0}>
+            <ChevronLeft />
+          </Button>
+          <Button size="icon" variant="outline" onClick={() => onMovePage(activePageIndex, 'down')} disabled={activePageIndex === pages.length - 1}>
+            <ChevronRight />
+          </Button>
+          <Button size="icon" variant="outline" onClick={() => onDuplicatePage(activePageIndex)}>
+            <Copy />
+          </Button>
+          <Button size="icon" variant="outline" onClick={onAddPage}>
+            <Plus />
+          </Button>
+          <Button size="icon" variant="outline" onClick={() => onDeletePage(activePageIndex)} disabled={pages.length === 1}>
+            <Trash2 />
+          </Button>
+        </div>
       </div>
 
-      <label className="lcd-field">
-        <span>Screen size</span>
-        <select value={selectedScreenType} onChange={onScreenTypeChange}>
-          {presets.map((preset) => (
-            <option key={preset.id} value={preset.id}>
-              {preset.label}
-            </option>
-          ))}
-        </select>
-      </label>
+      <div className="lcd-editor-body">
+        <label className="lcd-field">
+          <span>Size</span>
+          <select value={selectedScreenType} onChange={onScreenTypeChange}>
+            {presets.map((preset) => (
+              <option key={preset.id} value={preset.id}>
+                {preset.label}
+              </option>
+            ))}
+          </select>
+        </label>
 
-      <label className="lcd-field">
-        <div className="lcd-field-row">
-          <span>Text input</span>
-          <small>
-            {columns} columns x {rows} rows
-          </small>
+        <div className="lcd-editor-grid">
+          <label className="lcd-field">
+            <span>Mode</span>
+            <select
+              value={activePage.mode}
+              onChange={(event) => onPageModeChange(activePageIndex, event.target.value as PageMode)}
+            >
+              {PAGE_MODE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="lcd-field">
+            <span>Animation</span>
+            <select
+              value={activePage.animation}
+              onChange={(event) =>
+                onPageAnimationChange(activePageIndex, event.target.value as LcdAnimation)
+              }
+            >
+              {animationOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
-        <textarea
-          rows={rows}
-          maxLength={textMaxLength}
-          value={text}
-          onChange={onTextChange}
-          placeholder={LCD_TEXT_PLACEHOLDER}
-          spellCheck={false}
-        />
-      </label>
+
+        <label className="lcd-field">
+          <span>Duration</span>
+          <div className="lcd-duration-row">
+            <input
+              type="number"
+              min={activePage.durationUnit === 's' ? 0.1 : 100}
+              step={activePage.durationUnit === 's' ? 0.1 : 100}
+              value={formatDurationInput(activePage.durationMs, activePage.durationUnit)}
+              onChange={(event) => onDurationValueChange(activePageIndex, event.target.value)}
+            />
+            <select
+              value={activePage.durationUnit}
+              onChange={(event) =>
+                onDurationUnitChange(activePageIndex, event.target.value as DurationUnit)
+              }
+            >
+              {DURATION_UNIT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </label>
+
+        {activePage.mode === 'scroll' ? (
+          <div className="lcd-scroll-fields">
+            {activePage.rowTexts.map((rowText, rowIndex) => (
+              <label key={`${activePage.id}-${rowIndex}`} className="lcd-field">
+                <span>{`Row ${rowIndex + 1}`}</span>
+                <input
+                  type="text"
+                  value={rowText}
+                  onChange={(event) => onRowTextChange(activePageIndex, rowIndex, event.target.value)}
+                  placeholder={`Row ${rowIndex + 1}`}
+                />
+              </label>
+            ))}
+          </div>
+        ) : (
+          <label className="lcd-field">
+            <span>Text</span>
+            <textarea
+              rows={Math.max(rows + 2, 5)}
+              value={activePage.text}
+              onChange={(event) => onPageTextChange(activePageIndex, event)}
+              placeholder={LCD_TEXT_PLACEHOLDER}
+              spellCheck={false}
+            />
+          </label>
+        )}
+      </div>
     </div>
   )
 }

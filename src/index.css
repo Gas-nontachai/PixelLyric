@@ -102,70 +102,131 @@
     linear-gradient(180deg, #f9fbf7 0%, #edf1e9 100%);
 }
 
-.lcd-layout {
-  width: min(1400px, 100%);
+.lcd-workspace {
+  width: min(1500px, 100%);
   margin: 0 auto;
   display: grid;
-  gap: 28px;
-  align-items: center;
+  gap: 24px;
+  align-items: start;
 }
 
-.lcd-panel,
 .lcd-preview-panel {
-  border-radius: 28px;
+  min-width: 0;
+}
+
+.lcd-preview-shell {
+  min-height: calc(100vh - 48px);
+  padding: 28px;
+  border-radius: 30px;
   border: 1px solid rgba(17, 34, 23, 0.08);
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.78);
   box-shadow: 0 24px 70px rgba(20, 42, 24, 0.08);
-  backdrop-filter: blur(14px);
-}
-
-.lcd-panel {
-  padding: 28px;
   display: grid;
-  gap: 22px;
+  grid-template-rows: auto 1fr auto;
+  gap: 24px;
 }
 
-.lcd-preview-panel {
-  padding: 28px;
-  overflow: visible;
+.lcd-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.lcd-preview-header h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4vw, 3rem);
+  line-height: 1;
+  letter-spacing: -0.05em;
+}
+
+.lcd-toggle-button {
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.lcd-preview-board-wrap {
+  min-height: 560px;
+  border-radius: 30px;
+  padding: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
+  background:
+    radial-gradient(circle at center, rgba(142, 180, 46, 0.1), transparent 40%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.56), rgba(241, 246, 233, 0.84));
 }
 
-.lcd-panel-heading {
+.lcd-playback-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.lcd-editor-dock {
+  min-width: 0;
+}
+
+.lcd-editor {
+  padding: 20px;
+  border-radius: 26px;
+  border: 1px solid rgba(17, 34, 23, 0.08);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 20px 50px rgba(20, 42, 24, 0.06);
   display: grid;
+  gap: 18px;
+}
+
+.lcd-editor-topbar {
+  display: grid;
+  gap: 12px;
+}
+
+.lcd-editor-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.lcd-editor-tab {
+  flex: 0 0 auto;
+  min-width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  border: 1px solid rgba(17, 34, 23, 0.12);
+  background: rgba(245, 251, 241, 0.88);
+  color: var(--foreground);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.lcd-editor-tab-active {
+  background: rgba(144, 180, 47, 0.22);
+  border-color: rgba(6, 123, 26, 0.28);
+}
+
+.lcd-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
-.lcd-kicker {
-  margin: 0;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.28em;
-  text-transform: uppercase;
-  color: #0c7b24;
+.lcd-editor-body {
+  display: grid;
+  gap: 16px;
 }
 
-.lcd-panel-heading h1 {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: clamp(2rem, 4vw, 3.4rem);
-  line-height: 0.96;
-  letter-spacing: -0.06em;
-}
-
-.lcd-copy {
-  margin: 0;
-  max-width: 40rem;
-  font-size: 1rem;
-  line-height: 1.7;
-  color: var(--muted-foreground);
+.lcd-editor-grid {
+  display: grid;
+  gap: 14px;
 }
 
 .lcd-field {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .lcd-field span,
@@ -185,7 +246,8 @@
 }
 
 .lcd-field select,
-.lcd-field textarea {
+.lcd-field textarea,
+.lcd-field input {
   width: 100%;
   border-radius: 18px;
   border: 1px solid rgba(12, 41, 19, 0.12);
@@ -206,24 +268,34 @@
   line-height: 1.55;
 }
 
+.lcd-field input {
+  min-height: 54px;
+  padding: 0 16px;
+}
+
 .lcd-field select:focus,
-.lcd-field textarea:focus {
+.lcd-field textarea:focus,
+.lcd-field input:focus,
+.lcd-editor-tab:focus {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
 }
 
-.lcd-meta {
+.lcd-duration-row {
   display: grid;
-  gap: 8px;
-  padding: 18px 20px;
-  border-radius: 20px;
-  background: linear-gradient(180deg, rgba(142, 180, 46, 0.17), rgba(2, 133, 31, 0.08));
-  color: #2d4218;
+  grid-template-columns: minmax(0, 1fr) 110px;
+  gap: 10px;
 }
 
-.lcd-meta p {
+.lcd-scroll-fields {
+  display: grid;
+  gap: 12px;
+}
+
+.lcd-editor-footnote {
   margin: 0;
-  line-height: 1.5;
+  font-size: 0.82rem;
+  color: var(--muted-foreground);
 }
 
 .lcd-board {
@@ -327,14 +399,64 @@
 }
 
 @media (min-width: 1100px) {
-  .lcd-layout {
-    grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+  .lcd-workspace {
+    grid-template-columns: minmax(0, 1fr) 360px;
+  }
+
+  .lcd-workspace-editor-closed {
+    grid-template-columns: minmax(0, 1fr) 0;
+  }
+
+  .lcd-editor-dock {
+    overflow: hidden;
+    transition:
+      width 180ms ease,
+      opacity 180ms ease,
+      transform 180ms ease;
+  }
+
+  .lcd-workspace-editor-closed .lcd-editor-dock {
+    width: 0;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(12px);
+  }
+
+  .lcd-workspace-editor-open .lcd-editor-dock {
+    width: 360px;
+    opacity: 1;
+    transform: translateX(0);
   }
 }
 
-@media (max-width: 1099px) {
-  .lcd-board {
-    margin: 0;
+@media (min-width: 768px) and (max-width: 1099px) {
+  .lcd-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lcd-workspace-editor-open {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+
+  .lcd-editor-dock {
+    overflow: hidden;
+    transition:
+      width 180ms ease,
+      opacity 180ms ease,
+      transform 180ms ease;
+  }
+
+  .lcd-workspace-editor-closed .lcd-editor-dock {
+    width: 0;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(12px);
+  }
+
+  .lcd-workspace-editor-open .lcd-editor-dock {
+    width: 320px;
+    opacity: 1;
+    transform: translateX(0);
   }
 }
 
@@ -343,17 +465,30 @@
     padding: 16px;
   }
 
-  .lcd-panel,
-  .lcd-preview-panel {
-    border-radius: 22px;
+  .lcd-workspace,
+  .lcd-workspace-editor-open,
+  .lcd-workspace-editor-closed {
+    grid-template-columns: 1fr;
   }
 
-  .lcd-panel {
-    padding: 22px;
-  }
-
-  .lcd-preview-panel {
+  .lcd-preview-shell,
+  .lcd-editor {
     padding: 18px;
+    border-radius: 24px;
+  }
+
+  .lcd-preview-shell {
+    min-height: auto;
+  }
+
+  .lcd-preview-board-wrap {
+    min-height: 0;
+    padding: 14px;
+    overflow-x: auto;
+  }
+
+  .lcd-editor-dock:not(.lcd-editor-dock-open) {
+    display: none;
   }
 
   .lcd-board {
@@ -376,6 +511,18 @@
     padding: 14px;
   }
 
+  .lcd-preview-header {
+    align-items: flex-start;
+  }
+
+  .lcd-duration-row {
+    grid-template-columns: minmax(0, 1fr) 92px;
+  }
+
+  .lcd-editor-grid {
+    grid-template-columns: 1fr;
+  }
+
   .lcd-characters {
     gap: 12px;
   }
@@ -388,5 +535,11 @@
     width: 20px;
     height: 32px;
     gap: 1px;
+  }
+}
+
+@media (min-width: 721px) {
+  .lcd-editor-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

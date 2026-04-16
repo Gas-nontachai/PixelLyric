@@ -5,7 +5,7 @@ import { FONT, type PixelChar } from '@/components/lcd-font'
 type LcdDisplayProps = {
   columns: number
   rows: number
-  text: string
+  displayRows: string[]
 }
 
 const FALLBACK_CHAR = ' '
@@ -20,9 +20,8 @@ function normalizeLine(line: string, columns: number) {
     .padEnd(columns, FALLBACK_CHAR)
 }
 
-function buildDisplayRows(text: string, columns: number, rows: number) {
-  const rawRows = text.replace(/\r/g, '').split('\n').slice(0, rows)
-  const normalizedRows = rawRows.map((row) => normalizeLine(row, columns))
+function buildDisplayRows(displayRows: string[], columns: number, rows: number) {
+  const normalizedRows = displayRows.slice(0, rows).map((row) => normalizeLine(row, columns))
 
   while (normalizedRows.length < rows) {
     normalizedRows.push(FALLBACK_CHAR.repeat(columns))
@@ -48,8 +47,8 @@ function LcdCell({ character }: { character: string }) {
   )
 }
 
-export function LcdDisplay({ columns, rows, text }: LcdDisplayProps) {
-  const lines = buildDisplayRows(text, columns, rows)
+export function LcdDisplay({ columns, rows, displayRows }: LcdDisplayProps) {
+  const lines = buildDisplayRows(displayRows, columns, rows)
 
   return (
     <section className="lcd-board" aria-label={`LCD display preview ${columns} by ${rows}`}>
