@@ -74,6 +74,14 @@ function normalizePagesForPreset(pages: PageScript[], columns: number, rows: num
   }))
 }
 
+function pageNeedsProgressRendering(page: PageScript | undefined) {
+  if (!page) {
+    return false
+  }
+
+  return page.mode === 'scroll' || page.animation === 'typewriter'
+}
+
 export function useLcdStudio() {
   const [screenType, setScreenType] = useState<ScreenPresetId>('16x2')
   const preset = getPresetById(screenType)
@@ -371,14 +379,26 @@ export function useLcdStudio() {
         shouldStop = syncAudioTailPlayback(latestPlayback.isPlaying)
       }
 
-      startTransition(() => {
-        setPlayback((currentPlayback) => ({
-          ...currentPlayback,
-          activePageIndex: nextPageIndex,
-          isPlaying: shouldStop ? false : currentPlayback.isPlaying,
-          pageProgressMs: nextProgressMs,
-        }))
-      })
+      const nextIsPlaying = shouldStop ? false : latestPlayback.isPlaying
+      const nextPlaybackState = {
+        ...latestPlayback,
+        activePageIndex: nextPageIndex,
+        isPlaying: nextIsPlaying,
+        pageProgressMs: nextProgressMs,
+      }
+
+      playbackRef.current = nextPlaybackState
+
+      const shouldCommitPlaybackState =
+        nextPageIndex !== latestPlayback.activePageIndex ||
+        nextIsPlaying !== latestPlayback.isPlaying ||
+        pageNeedsProgressRendering(latestPages[nextPageIndex])
+
+      if (shouldCommitPlaybackState) {
+        startTransition(() => {
+          setPlayback(nextPlaybackState)
+        })
+      }
 
       animationFrameId = requestAnimationFrame(tick)
     }
@@ -863,10 +883,13 @@ export function useLcdStudio() {
     pause: () => {
       stopAudioPreview()
       setCountdownRemaining(null)
-      setPlayback((currentPlayback) => ({
-        ...currentPlayback,
+      const pausedPlayback = {
+        ...playbackRef.current,
         isPlaying: false,
-      }))
+      }
+
+      playbackRef.current = pausedPlayback
+      setPlayback(pausedPlayback)
       syncAudioToTimeline({
         pageIndex: playbackRef.current.activePageIndex,
         pageProgressMs: playbackRef.current.pageProgressMs,
