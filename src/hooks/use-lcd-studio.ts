@@ -912,18 +912,7 @@ export function useLcdStudio() {
       },
     restart: () =>
       {
-        stopAudioPreview()
-        setCountdownRemaining(null)
-        setPlayback((currentPlayback) => ({
-          ...currentPlayback,
-          pageProgressMs: 0,
-        }))
-        syncAudioToTimeline({
-          pageIndex: playbackRef.current.activePageIndex,
-          pageProgressMs: 0,
-          shouldPlay: false,
-          forceSeek: true,
-        })
+        resetPlaybackToPage(0, playbackRef.current.isPlaying)
       },
     toggleLoop: () =>
       setPlayback((currentPlayback) => ({
