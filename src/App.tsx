@@ -33,6 +33,7 @@ function App() {
   ]
     .filter(Boolean)
     .join(' ')
+  const isPlaybackLocked = playback.isPlaying
 
   return (
     <main className="lcd-app-shell">
@@ -46,6 +47,7 @@ function App() {
           countdownSeconds={countdownSeconds}
           isEditorOpen={isEditorOpen}
           isLooping={playback.isLooping}
+          isPlaybackLocked={isPlaybackLocked}
           isPlaying={playback.isPlaying}
           onAudioClear={audioActions.clear}
           onAudioImport={audioActions.importFile}
@@ -72,7 +74,7 @@ function App() {
             rows={preset.rows}
             pages={pages}
             activePageIndex={playback.activePageIndex}
-            isPlaying={playback.isPlaying}
+            isPlaybackLocked={isPlaybackLocked}
             onScreenTypeChange={editorActions.handleScreenTypeChange}
             onSelectPage={editorActions.handleSelectPage}
             onAddPage={editorActions.handleAddPage}

@@ -25,7 +25,7 @@ type LcdControlPanelProps = {
   rows: number
   pages: PageScript[]
   activePageIndex: number
-  isPlaying: boolean
+  isPlaybackLocked: boolean
   onScreenTypeChange: (event: ChangeEvent<HTMLSelectElement>) => void
   onSelectPage: (pageIndex: number) => void
   onAddPage: () => void
@@ -52,6 +52,7 @@ function LcdControlPanelComponent({
   rows,
   pages,
   activePageIndex,
+  isPlaybackLocked,
   onScreenTypeChange,
   onSelectPage,
   onAddPage,
@@ -104,7 +105,10 @@ function LcdControlPanelComponent({
   }
 
   return (
-    <div className="lcd-editor">
+    <div
+      className={`lcd-editor${isPlaybackLocked ? ' lcd-editor-locked' : ''}`}
+      aria-disabled={isPlaybackLocked}
+    >
       <div className="lcd-editor-topbar">
         <div className="lcd-editor-tabs" role="tablist" aria-label="Pages">
           {pages.map((page, pageIndex) => (
@@ -112,6 +116,7 @@ function LcdControlPanelComponent({
               key={page.id}
               className={`lcd-editor-tab${pageIndex === activePageIndex ? ' lcd-editor-tab-active' : ''}`}
               onClick={() => onSelectPage(pageIndex)}
+              disabled={isPlaybackLocked}
               role="tab"
               aria-selected={pageIndex === activePageIndex}
             >
@@ -125,7 +130,7 @@ function LcdControlPanelComponent({
             size="icon"
             variant="outline"
             onClick={() => onSelectPage(activePageIndex - 1)}
-            disabled={activePageIndex === 0}
+            disabled={isPlaybackLocked || activePageIndex === 0}
           >
             <ChevronLeft />
           </Button>
@@ -133,17 +138,17 @@ function LcdControlPanelComponent({
             size="icon"
             variant="outline"
             onClick={() => onSelectPage(activePageIndex + 1)}
-            disabled={activePageIndex === pages.length - 1}
+            disabled={isPlaybackLocked || activePageIndex === pages.length - 1}
           >
             <ChevronRight />
           </Button>
-          <Button size="icon" variant="outline" onClick={() => onDuplicatePage(activePageIndex)}>
+          <Button size="icon" variant="outline" onClick={() => onDuplicatePage(activePageIndex)} disabled={isPlaybackLocked}>
             <Copy />
           </Button>
-          <Button size="icon" variant="outline" onClick={onAddPage}>
+          <Button size="icon" variant="outline" onClick={onAddPage} disabled={isPlaybackLocked}>
             <Plus />
           </Button>
-          <Button size="icon" variant="outline" onClick={() => onDeletePage(activePageIndex)} disabled={pages.length === 1}>
+          <Button size="icon" variant="outline" onClick={() => onDeletePage(activePageIndex)} disabled={isPlaybackLocked || pages.length === 1}>
             <Trash2 />
           </Button>
         </div>
@@ -152,7 +157,7 @@ function LcdControlPanelComponent({
       <div className="lcd-editor-body">
         <label className="lcd-field">
           <span>Size</span>
-          <select value={selectedScreenType} onChange={onScreenTypeChange}>
+          <select value={selectedScreenType} onChange={onScreenTypeChange} disabled={isPlaybackLocked}>
             {presets.map((preset) => (
               <option key={preset.id} value={preset.id}>
                 {preset.label}
@@ -166,6 +171,7 @@ function LcdControlPanelComponent({
             <span>Mode</span>
             <select
               value={activePage.mode}
+              disabled={isPlaybackLocked}
               onChange={(event) => onPageModeChange(activePageIndex, event.target.value as PageMode)}
             >
               {PAGE_MODE_OPTIONS.map((option) => (
@@ -180,6 +186,7 @@ function LcdControlPanelComponent({
             <span>Animation</span>
             <select
               value={activePage.animation}
+              disabled={isPlaybackLocked}
               onChange={(event) =>
                 onPageAnimationChange(activePageIndex, event.target.value as LcdAnimation)
               }
@@ -201,6 +208,7 @@ function LcdControlPanelComponent({
               inputMode="decimal"
               step={activePage.durationUnit === 's' ? 0.1 : 100}
               value={durationDraft}
+              disabled={isPlaybackLocked}
               onBlur={commitDurationDraft}
               onChange={(event) =>
                 setDurationDraftState({
@@ -213,6 +221,7 @@ function LcdControlPanelComponent({
             />
             <select
               value={activePage.durationUnit}
+              disabled={isPlaybackLocked}
               onChange={(event) => {
                 onDurationUnitChange(activePageIndex, event.target.value as DurationUnit)
               }}
@@ -234,6 +243,7 @@ function LcdControlPanelComponent({
                 <input
                   type="text"
                   value={rowText}
+                  disabled={isPlaybackLocked}
                   onChange={(event) => onRowTextChange(activePageIndex, rowIndex, event.target.value)}
                   placeholder={`Row ${rowIndex + 1}`}
                 />
@@ -246,6 +256,7 @@ function LcdControlPanelComponent({
             <textarea
               rows={Math.max(rows + 2, 5)}
               value={activePage.text}
+              disabled={isPlaybackLocked}
               onChange={(event) => onPageTextChange(activePageIndex, event)}
               placeholder={LCD_TEXT_PLACEHOLDER}
               spellCheck={false}
@@ -258,13 +269,13 @@ function LcdControlPanelComponent({
 }
 
 export const LcdControlPanel = memo(LcdControlPanelComponent, (previousProps, nextProps) => {
-  const shouldIgnoreActivePageIndexChange = previousProps.isPlaying && nextProps.isPlaying
+  const shouldIgnoreActivePageIndexChange = previousProps.isPlaybackLocked && nextProps.isPlaybackLocked
 
   if (
     previousProps.selectedScreenType !== nextProps.selectedScreenType ||
     previousProps.columns !== nextProps.columns ||
     previousProps.rows !== nextProps.rows ||
-    previousProps.isPlaying !== nextProps.isPlaying ||
+    previousProps.isPlaybackLocked !== nextProps.isPlaybackLocked ||
     previousProps.presets !== nextProps.presets ||
     previousProps.pages.length !== nextProps.pages.length
   ) {

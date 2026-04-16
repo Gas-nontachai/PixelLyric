@@ -27,6 +27,7 @@ type AudioViewModel = {
 
 type LcdAudioPanelProps = {
     audio: AudioViewModel
+    isPlaybackLocked: boolean
     onImportFile: (file: File | null) => Promise<AudioActionResult>
     onPreviewSeek: (value: number) => void
     onPreviewTogglePlay: () => void
@@ -85,6 +86,7 @@ function formatTimelineLabel(ms: number) {
 
 export function LcdAudioPanel({
     audio,
+    isPlaybackLocked,
     onImportFile,
     onPreviewSeek,
     onPreviewTogglePlay,
@@ -113,6 +115,11 @@ export function LcdAudioPanel({
     }
 
     const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+        if (isPlaybackLocked) {
+            event.target.value = ''
+            return
+        }
+
         const [file] = Array.from(event.target.files ?? [])
         const result = await onImportFile(file ?? null)
 
@@ -128,6 +135,10 @@ export function LcdAudioPanel({
     }
 
     const commitTrimStartDraft = (value: string) => {
+        if (isPlaybackLocked) {
+            return
+        }
+
         const track = audio.track
 
         if (!track) {
@@ -154,6 +165,10 @@ export function LcdAudioPanel({
     }
 
     const commitTrimEndDraft = (value: string) => {
+        if (isPlaybackLocked) {
+            return
+        }
+
         const track = audio.track
 
         if (!track) {
@@ -190,15 +205,20 @@ export function LcdAudioPanel({
                         accept=".mp3,audio/mpeg"
                         onChange={handleFileChange}
                     />
-                    <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isPlaybackLocked}
+                    >
                         <Upload />
                         Import MP3
                     </Button>
-                    <Button size="sm" variant="outline" onClick={onClear} disabled={!audio.track}>
+                    <Button size="sm" variant="outline" onClick={onClear} disabled={isPlaybackLocked || !audio.track}>
                         <Trash2 />
                         Clear
                     </Button>
-                    <Button size="sm" onClick={onPreviewTogglePlay} disabled={!audio.track}>
+                    <Button size="sm" onClick={onPreviewTogglePlay} disabled={isPlaybackLocked || !audio.track}>
                         {audio.previewIsPlaying ? <Pause /> : <Play />}
                         {audio.previewIsPlaying ? 'Pause preview' : 'Play selection'}
                     </Button>
@@ -237,6 +257,7 @@ export function LcdAudioPanel({
                                 inputMode="text"
                                 placeholder="0:00"
                                 defaultValue={formatTime(audio.track.trimStartMs)}
+                                disabled={isPlaybackLocked}
                                 onBlur={(event) => commitTrimStartDraft(event.target.value)}
                             />
                         </label>
@@ -248,6 +269,7 @@ export function LcdAudioPanel({
                                 inputMode="text"
                                 placeholder="0:00"
                                 defaultValue={formatTime(audio.track.trimEndMs)}
+                                disabled={isPlaybackLocked}
                                 onBlur={(event) => commitTrimEndDraft(event.target.value)}
                             />
                         </label>
@@ -274,7 +296,7 @@ export function LcdAudioPanel({
                                 selectionEndPercent={selectionEndPercent}
                                 currentPercent={previewPercent}
                                 onSeek={(percent) => {
-                                    if (!audio.track) {
+                                    if (!audio.track || isPlaybackLocked) {
                                         return
                                     }
 
@@ -289,6 +311,7 @@ export function LcdAudioPanel({
                                 max={audio.track.durationMs}
                                 step={100}
                                 value={audio.track.trimStartMs}
+                                disabled={isPlaybackLocked}
                                 onChange={(event) => {
                                     const result = onTrimStartMsChange(Number(event.target.value))
 
@@ -304,6 +327,7 @@ export function LcdAudioPanel({
                                 max={audio.track.durationMs}
                                 step={100}
                                 value={audio.track.trimEndMs}
+                                disabled={isPlaybackLocked}
                                 onChange={(event) => {
                                     const result = onTrimEndMsChange(Number(event.target.value))
 

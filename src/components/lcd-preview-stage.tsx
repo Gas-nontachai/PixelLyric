@@ -36,6 +36,7 @@ type LcdPreviewStageProps = {
   displayRows: string[]
   isEditorOpen: boolean
   isLooping: boolean
+  isPlaybackLocked: boolean
   isPlaying: boolean
   onAudioClear: () => void
   onAudioImport: (file: File | null) => Promise<AudioActionResult>
@@ -66,6 +67,7 @@ export function LcdPreviewStage({
   displayRows,
   isEditorOpen,
   isLooping,
+  isPlaybackLocked,
   isPlaying,
   onAudioClear,
   onAudioImport,
@@ -87,6 +89,11 @@ export function LcdPreviewStage({
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const handleAudioFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    if (isPlaybackLocked) {
+      event.target.value = ''
+      return
+    }
+
     const [file] = Array.from(event.target.files ?? [])
     const result = await onAudioImport(file ?? null)
 
@@ -109,6 +116,10 @@ export function LcdPreviewStage({
   }
 
   const handleToggleAudioDialog = () => {
+    if (isPlaybackLocked) {
+      return
+    }
+
     if (!audio.track) {
       fileInputRef.current?.click()
       return
@@ -136,6 +147,7 @@ export function LcdPreviewStage({
             className="lcd-toggle-button"
             onClick={onToggleEditor}
             aria-label={isEditorOpen ? 'Hide editor' : 'Show editor'}
+            disabled={isPlaybackLocked}
           >
             <Pencil />
           </Button>
@@ -167,6 +179,7 @@ export function LcdPreviewStage({
           hasAudio={Boolean(audio.track)}
           isAudioPanelOpen={isAudioPanelOpen}
           isLooping={isLooping}
+          isPlaybackLocked={isPlaybackLocked}
           isPlaying={isPlaying}
           onNext={onNext}
           onPause={onPause}
@@ -185,6 +198,7 @@ export function LcdPreviewStage({
         >
           <LcdAudioPanel
             audio={audio}
+            isPlaybackLocked={isPlaybackLocked}
             onImportFile={onAudioImport}
             onPreviewSeek={onAudioPreviewSeek}
             onPreviewTogglePlay={onAudioPreviewTogglePlay}

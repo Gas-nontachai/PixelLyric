@@ -628,6 +628,15 @@
   gap: 18px;
 }
 
+.lcd-editor-locked {
+  opacity: 0.7;
+}
+
+.lcd-editor-locked .lcd-editor-topbar,
+.lcd-editor-locked .lcd-editor-body {
+  pointer-events: none;
+}
+
 .lcd-editor-topbar {
   display: grid;
   gap: 12px;
