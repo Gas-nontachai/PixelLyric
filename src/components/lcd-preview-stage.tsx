@@ -1,4 +1,4 @@
-import { type ChangeEvent, type KeyboardEvent, useEffect, useRef, useState } from 'react'
+import { type ChangeEvent, type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { FileCog, Pencil } from 'lucide-react'
 
 import { LcdAudioPanel } from '@/components/lcd-audio-panel'
@@ -32,6 +32,21 @@ type PreviewAudioState = {
   overflowMs: number
   previewPositionMs: number
   previewIsPlaying: boolean
+}
+
+function isEditableEventTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) {
+    return false
+  }
+
+  const tagName = target.tagName
+
+  return (
+    target.isContentEditable ||
+    tagName === 'INPUT' ||
+    tagName === 'TEXTAREA' ||
+    tagName === 'SELECT'
+  )
 }
 
 type LcdPreviewStageProps = {
@@ -127,7 +142,7 @@ export function LcdPreviewStage({
     projectNameInputRef.current?.select()
   }, [isRenamingProjectName])
 
-  const showProjectToast = (result: ProjectActionResult) => {
+  const showProjectToast = useCallback((result: ProjectActionResult) => {
     if (!result.message) {
       return
     }
@@ -136,7 +151,7 @@ export function LcdPreviewStage({
       position: 'top-right',
       variant: result.ok ? 'success' : 'error',
     })
-  }
+  }, [onShowToast])
 
   const handleAudioFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
     if (isPlaybackLocked) {
@@ -192,7 +207,7 @@ export function LcdPreviewStage({
     event.target.value = ''
   }
 
-  const handleProjectNew = async () => {
+  const handleProjectNew = useCallback(async () => {
     const shouldProceed = !isDirty || window.confirm('Discard unsaved changes and create a new project?')
 
     if (!shouldProceed) {
@@ -201,7 +216,7 @@ export function LcdPreviewStage({
 
     const result = await onProjectNew()
     showProjectToast(result)
-  }
+  }, [isDirty, onProjectNew, showProjectToast])
 
   const handleProjectSave = async () => {
     const result = await onProjectSave()
@@ -219,7 +234,7 @@ export function LcdPreviewStage({
     showProjectToast(result)
   }
 
-  const handleOpenProjectPicker = async () => {
+  const handleOpenProjectPicker = useCallback(async () => {
     if (isDirty && !window.confirm('Discard unsaved changes and open another project?')) {
       return
     }
@@ -252,7 +267,44 @@ export function LcdPreviewStage({
     }
 
     projectFileInputRef.current?.click()
-  }
+  }, [isDirty, onProjectImport, showProjectToast])
+
+  useEffect(() => {
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (
+        isPlaybackLocked ||
+        event.repeat ||
+        event.isComposing ||
+        !(event.metaKey || event.ctrlKey) ||
+        !event.altKey
+      ) {
+        return
+      }
+
+      if (isEditableEventTarget(event.target)) {
+        return
+      }
+
+      const key = event.key.toLowerCase()
+
+      if (key === 'n') {
+        event.preventDefault()
+        void handleProjectNew()
+        return
+      }
+
+      if (key === 'o') {
+        event.preventDefault()
+        void handleOpenProjectPicker()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [handleOpenProjectPicker, handleProjectNew, isPlaybackLocked])
 
   const handleStartProjectRename = () => {
     if (isPlaybackLocked) {
