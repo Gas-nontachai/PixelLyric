@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button'
 
 type LcdPreviewStageProps = {
   columns: number
+  countdownRemaining: number | null
+  countdownSeconds: 0 | 3 | 5 | 10
   rows: number
   displayRows: string[]
   isEditorOpen: boolean
@@ -18,10 +20,13 @@ type LcdPreviewStageProps = {
   onRestart: () => void
   onToggleEditor: () => void
   onToggleLoop: () => void
+  onCountdownCycle: () => void
 }
 
 export function LcdPreviewStage({
   columns,
+  countdownRemaining,
+  countdownSeconds,
   rows,
   displayRows,
   isEditorOpen,
@@ -34,6 +39,7 @@ export function LcdPreviewStage({
   onRestart,
   onToggleEditor,
   onToggleLoop,
+  onCountdownCycle,
 }: LcdPreviewStageProps) {
   return (
     <section className="lcd-preview-panel">
@@ -52,10 +58,15 @@ export function LcdPreviewStage({
         </div>
 
         <div className="lcd-preview-board-wrap">
+          {countdownRemaining !== null ? (
+            <div className="lcd-countdown-overlay">{countdownRemaining}</div>
+          ) : null}
           <LcdDisplay columns={columns} rows={rows} displayRows={displayRows} />
         </div>
 
         <LcdPlaybackBar
+          countdownRemaining={countdownRemaining}
+          countdownSeconds={countdownSeconds}
           isLooping={isLooping}
           isPlaying={isPlaying}
           onNext={onNext}
@@ -64,6 +75,7 @@ export function LcdPreviewStage({
           onPrev={onPrev}
           onRestart={onRestart}
           onToggleLoop={onToggleLoop}
+          onCountdownCycle={onCountdownCycle}
         />
       </div>
     </section>

@@ -126,11 +126,11 @@ export function parseDurationInput(value: string, unit: DurationUnit) {
   const parsedValue = Number(value)
 
   if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
-    return DEFAULT_DURATION_MS
+    return null
   }
 
   const durationMs = unit === 's' ? parsedValue * 1000 : parsedValue
-  return Math.max(100, Math.round(durationMs))
+  return Math.round(durationMs)
 }
 
 export function formatDurationInput(durationMs: number, unit: DurationUnit) {

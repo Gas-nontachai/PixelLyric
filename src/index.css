@@ -149,6 +149,7 @@
   min-height: 560px;
   border-radius: 30px;
   padding: 24px;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -165,8 +166,113 @@
   gap: 12px;
 }
 
+.lcd-countdown-picker {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.lcd-countdown-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: clamp(4rem, 14vw, 7rem);
+  font-weight: 700;
+  letter-spacing: -0.08em;
+  color: rgba(17, 34, 23, 0.34);
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.18), transparent 52%);
+  pointer-events: none;
+  z-index: 1;
+}
+
 .lcd-editor-dock {
   min-width: 0;
+}
+
+.lcd-toast-region {
+  position: fixed;
+  z-index: 50;
+  display: grid;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.lcd-toast-region-top-left {
+  top: 24px;
+  left: 24px;
+  justify-items: start;
+}
+
+.lcd-toast-region-top-center {
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  justify-items: center;
+}
+
+.lcd-toast-region-top-right {
+  top: 24px;
+  right: 24px;
+  justify-items: end;
+}
+
+.lcd-toast-region-bottom-left {
+  left: 24px;
+  bottom: 24px;
+  justify-items: start;
+}
+
+.lcd-toast-region-bottom-center {
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  justify-items: center;
+}
+
+.lcd-toast-region-bottom-right {
+  right: 24px;
+  bottom: 24px;
+  justify-items: end;
+}
+
+.lcd-toast {
+  min-width: 240px;
+  max-width: 320px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(17, 34, 23, 0.1);
+  background: rgba(17, 34, 23, 0.94);
+  color: #f6ffe8;
+  box-shadow: 0 18px 40px rgba(17, 34, 23, 0.22);
+  animation: lcd-toast-in 220ms ease forwards;
+}
+
+.lcd-toast-info {
+  background: rgba(17, 34, 23, 0.94);
+  color: #f6ffe8;
+}
+
+.lcd-toast-success {
+  background: rgba(6, 123, 26, 0.94);
+  color: #f6ffe8;
+}
+
+.lcd-toast-warning {
+  background: rgba(155, 94, 0, 0.96);
+  color: #fff4d5;
+}
+
+.lcd-toast-error {
+  background: rgba(163, 47, 32, 0.96);
+  color: #fff0ec;
+}
+
+.lcd-toast-leaving {
+  animation: lcd-toast-out 220ms ease forwards;
 }
 
 .lcd-editor {
@@ -296,6 +402,30 @@
   margin: 0;
   font-size: 0.82rem;
   color: var(--muted-foreground);
+}
+
+@keyframes lcd-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes lcd-toast-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
 }
 
 .lcd-board {
@@ -521,6 +651,29 @@
 
   .lcd-editor-grid {
     grid-template-columns: 1fr;
+  }
+
+  .lcd-toast-region {
+    right: 16px;
+    left: 16px;
+    transform: none;
+  }
+
+  .lcd-toast {
+    min-width: 0;
+    max-width: none;
+  }
+
+  .lcd-toast-region-top-left,
+  .lcd-toast-region-top-center,
+  .lcd-toast-region-top-right {
+    top: 16px;
+  }
+
+  .lcd-toast-region-bottom-left,
+  .lcd-toast-region-bottom-center,
+  .lcd-toast-region-bottom-right {
+    bottom: 16px;
   }
 
   .lcd-characters {

@@ -25,6 +25,9 @@ type PlaybackState = {
   pageProgressMs: number
 }
 
+type CountdownOption = 0 | 3 | 5 | 10
+const COUNTDOWN_OPTIONS: CountdownOption[] = [0, 3, 5, 10]
+
 function moveIndex(index: number, direction: 'up' | 'down', length: number) {
   if (direction === 'up') {
     return Math.max(0, index - 1)
@@ -51,6 +54,8 @@ export function useLcdStudio() {
     isLooping: true,
     pageProgressMs: 0,
   })
+  const [countdownSeconds, setCountdownSeconds] = useState<CountdownOption>(0)
+  const [countdownRemaining, setCountdownRemaining] = useState<number | null>(null)
 
   const playbackRef = useRef(playback)
   const pagesRef = useRef(pages)
@@ -119,7 +124,29 @@ export function useLcdStudio() {
     }
   }, [playback.isPlaying])
 
+  useEffect(() => {
+    if (countdownRemaining === null) {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      if (countdownRemaining <= 1) {
+        setCountdownRemaining(null)
+        setPlayback((currentPlayback) => ({
+          ...currentPlayback,
+          isPlaying: true,
+        }))
+        return
+      }
+
+      setCountdownRemaining((currentValue) => (currentValue === null ? null : currentValue - 1))
+    }, 1000)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [countdownRemaining])
+
   const resetPlaybackToPage = (pageIndex: number, shouldPlay = false) => {
+    setCountdownRemaining(null)
     setPlayback((currentPlayback) => ({
       ...currentPlayback,
       activePageIndex: pageIndex,
@@ -228,10 +255,30 @@ export function useLcdStudio() {
 
   const handleDurationValueChange = (pageIndex: number, value: string) => {
     let nextDurationMs = DEFAULT_DURATION_MS
+    let wasClamped = false
+
+    const page = pagesRef.current[pageIndex]
+
+    if (!page) {
+      return {
+        durationMs: DEFAULT_DURATION_MS,
+        wasClamped: false,
+      }
+    }
+
+    const parsedDurationMs = parseDurationInput(value, page.durationUnit)
+
+    if (parsedDurationMs === null) {
+      return {
+        durationMs: page.durationMs,
+        wasClamped: false,
+      }
+    }
+
+    nextDurationMs = Math.max(100, parsedDurationMs)
+    wasClamped = nextDurationMs !== parsedDurationMs
 
     updatePage(pageIndex, (page) => {
-      nextDurationMs = parseDurationInput(value, page.durationUnit)
-
       return {
         ...page,
         durationMs: nextDurationMs,
@@ -244,6 +291,11 @@ export function useLcdStudio() {
         pageProgressMs: Math.min(currentPlayback.pageProgressMs, nextDurationMs),
       }))
     }
+
+    return {
+      durationMs: nextDurationMs,
+      wasClamped,
+    }
   }
 
   const handleDurationUnitChange = (pageIndex: number, unit: DurationUnit) => {
@@ -255,41 +307,70 @@ export function useLcdStudio() {
   }
 
   const playbackActions = {
-    play: () =>
+    play: () => {
+      if (countdownSeconds > 0) {
+        setCountdownRemaining(countdownSeconds)
+        setPlayback((currentPlayback) => ({
+          ...currentPlayback,
+          isPlaying: false,
+        }))
+        return
+      }
+
       setPlayback((currentPlayback) => ({
         ...currentPlayback,
         isPlaying: true,
-      })),
-    pause: () =>
+      }))
+    },
+    pause: () => {
+      setCountdownRemaining(null)
       setPlayback((currentPlayback) => ({
         ...currentPlayback,
         isPlaying: false,
-      })),
+      }))
+    },
     prev: () =>
-      setPlayback((currentPlayback) => ({
-        activePageIndex:
-          (currentPlayback.activePageIndex - 1 + pages.length) % pages.length,
-        isPlaying: false,
-        isLooping: currentPlayback.isLooping,
-        pageProgressMs: 0,
-      })),
+      {
+        setCountdownRemaining(null)
+        setPlayback((currentPlayback) => ({
+          activePageIndex:
+            (currentPlayback.activePageIndex - 1 + pages.length) % pages.length,
+          isPlaying: false,
+          isLooping: currentPlayback.isLooping,
+          pageProgressMs: 0,
+        }))
+      },
     next: () =>
-      setPlayback((currentPlayback) => ({
-        activePageIndex: (currentPlayback.activePageIndex + 1) % pages.length,
-        isPlaying: false,
-        isLooping: currentPlayback.isLooping,
-        pageProgressMs: 0,
-      })),
+      {
+        setCountdownRemaining(null)
+        setPlayback((currentPlayback) => ({
+          activePageIndex: (currentPlayback.activePageIndex + 1) % pages.length,
+          isPlaying: false,
+          isLooping: currentPlayback.isLooping,
+          pageProgressMs: 0,
+        }))
+      },
     restart: () =>
-      setPlayback((currentPlayback) => ({
-        ...currentPlayback,
-        pageProgressMs: 0,
-      })),
+      {
+        setCountdownRemaining(null)
+        setPlayback((currentPlayback) => ({
+          ...currentPlayback,
+          pageProgressMs: 0,
+        }))
+      },
     toggleLoop: () =>
       setPlayback((currentPlayback) => ({
         ...currentPlayback,
         isLooping: !currentPlayback.isLooping,
       })),
+    cycleCountdownSeconds: () => {
+      setCountdownSeconds((currentValue) => {
+        const currentIndex = COUNTDOWN_OPTIONS.indexOf(currentValue)
+        const nextIndex = (currentIndex + 1) % COUNTDOWN_OPTIONS.length
+        return COUNTDOWN_OPTIONS[nextIndex]
+      })
+      setCountdownRemaining(null)
+    },
   }
 
   const activePage = pages[playback.activePageIndex] ?? pages[0]
@@ -304,6 +385,8 @@ export function useLcdStudio() {
     pages,
     activePage,
     playback,
+    countdownRemaining,
+    countdownSeconds,
     displayRows: activePage ? getVisibleRows(activePage, preset, currentProgressMs) : [],
     editorActions: {
       handleScreenTypeChange,

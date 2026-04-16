@@ -2,12 +2,26 @@ import { LcdControlPanel } from '@/components/lcd-control-panel'
 import { LcdPreviewStage } from '@/components/lcd-preview-stage'
 import { useLcdStudio } from '@/hooks/use-lcd-studio'
 import { useResponsiveEditorDock } from '@/hooks/use-responsive-editor-dock'
+import { useToast } from '@/hooks/use-toast'
 import { useViewportMode } from '@/hooks/use-viewport-mode'
+import { LcdToastRegion } from '@/components/lcd-toast-region'
 
 function App() {
   const { viewportMode, isMobile } = useViewportMode()
   const { isEditorOpen, toggleEditor } = useResponsiveEditorDock(viewportMode)
-  const { presets, screenType, preset, pages, playback, displayRows, editorActions, playbackActions } =
+  const { showToast, toasts } = useToast()
+  const {
+    presets,
+    screenType,
+    preset,
+    pages,
+    playback,
+    countdownRemaining,
+    countdownSeconds,
+    displayRows,
+    editorActions,
+    playbackActions,
+  } =
     useLcdStudio()
 
   const appClassName = [
@@ -25,6 +39,8 @@ function App() {
           columns={preset.columns}
           rows={preset.rows}
           displayRows={displayRows}
+          countdownRemaining={countdownRemaining}
+          countdownSeconds={countdownSeconds}
           isEditorOpen={isEditorOpen}
           isLooping={playback.isLooping}
           isPlaying={playback.isPlaying}
@@ -35,6 +51,7 @@ function App() {
           onRestart={playbackActions.restart}
           onToggleEditor={toggleEditor}
           onToggleLoop={playbackActions.toggleLoop}
+          onCountdownCycle={playbackActions.cycleCountdownSeconds}
         />
 
         <aside className={`lcd-editor-dock${isEditorOpen ? ' lcd-editor-dock-open' : ''}`}>
@@ -50,16 +67,17 @@ function App() {
             onAddPage={editorActions.handleAddPage}
             onDuplicatePage={editorActions.handleDuplicatePage}
             onDeletePage={editorActions.handleDeletePage}
-            onMovePage={editorActions.handleMovePage}
             onPageModeChange={editorActions.handlePageModeChange}
             onPageAnimationChange={editorActions.handlePageAnimationChange}
             onPageTextChange={editorActions.handlePageTextChange}
             onRowTextChange={editorActions.handleRowTextChange}
             onDurationValueChange={editorActions.handleDurationValueChange}
             onDurationUnitChange={editorActions.handleDurationUnitChange}
+            onShowToast={showToast}
           />
         </aside>
       </section>
+      <LcdToastRegion toasts={toasts}  />
     </main>
   )
 }

@@ -1,4 +1,4 @@
-import { type ChangeEvent } from 'react'
+import { type ChangeEvent, type KeyboardEvent, useState } from 'react'
 import { ChevronLeft, ChevronRight, Copy, Plus, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -16,6 +16,7 @@ import {
   type ScreenPreset,
   type ScreenPresetId,
 } from '@/lib/lcd'
+import type { ToastPosition, ToastVariant } from '@/hooks/use-toast'
 
 type LcdControlPanelProps = {
   presets: ScreenPreset[]
@@ -29,13 +30,19 @@ type LcdControlPanelProps = {
   onAddPage: () => void
   onDuplicatePage: (pageIndex: number) => void
   onDeletePage: (pageIndex: number) => void
-  onMovePage: (pageIndex: number, direction: 'up' | 'down') => void
   onPageModeChange: (pageIndex: number, mode: PageMode) => void
   onPageAnimationChange: (pageIndex: number, animation: LcdAnimation) => void
   onPageTextChange: (pageIndex: number, event: ChangeEvent<HTMLTextAreaElement>) => void
   onRowTextChange: (pageIndex: number, rowIndex: number, value: string) => void
-  onDurationValueChange: (pageIndex: number, value: string) => void
+  onDurationValueChange: (
+    pageIndex: number,
+    value: string,
+  ) => { durationMs: number; wasClamped: boolean }
   onDurationUnitChange: (pageIndex: number, unit: DurationUnit) => void
+  onShowToast: (
+    message: string,
+    options?: { position?: ToastPosition; variant?: ToastVariant },
+  ) => void
 }
 
 export function LcdControlPanel({
@@ -49,17 +56,51 @@ export function LcdControlPanel({
   onAddPage,
   onDuplicatePage,
   onDeletePage,
-  onMovePage,
   onPageModeChange,
   onPageAnimationChange,
   onPageTextChange,
   onRowTextChange,
   onDurationValueChange,
   onDurationUnitChange,
+  onShowToast,
 }: LcdControlPanelProps) {
   const activePage = pages[activePageIndex]
   const animationOptions =
     activePage.mode === 'scroll' ? SCROLL_ANIMATION_OPTIONS : PAGE_ANIMATION_OPTIONS
+  const formattedDuration = formatDurationInput(activePage.durationMs, activePage.durationUnit)
+  const [durationDraftState, setDurationDraftState] = useState({
+    pageId: activePage.id,
+    unit: activePage.durationUnit,
+    value: formattedDuration,
+  })
+  const durationDraft =
+    durationDraftState.pageId === activePage.id && durationDraftState.unit === activePage.durationUnit
+      ? durationDraftState.value
+      : formattedDuration
+
+  const commitDurationDraft = () => {
+    const result = onDurationValueChange(activePageIndex, durationDraft)
+    setDurationDraftState({
+      pageId: activePage.id,
+      unit: activePage.durationUnit,
+      value: formatDurationInput(result.durationMs, activePage.durationUnit),
+    })
+
+    if (result.wasClamped) {
+      onShowToast('Duration adjusted to 100 ms minimum', {
+        position: 'top-right',
+        variant: 'error',
+      })
+    }
+  }
+
+  const handleDurationKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== 'Enter') {
+      return
+    }
+
+    event.currentTarget.blur()
+  }
 
   return (
     <div className="lcd-editor">
@@ -79,10 +120,20 @@ export function LcdControlPanel({
         </div>
 
         <div className="lcd-editor-actions">
-          <Button size="icon" variant="outline" onClick={() => onMovePage(activePageIndex, 'up')} disabled={activePageIndex === 0}>
+          <Button
+            size="icon"
+            variant="outline"
+            onClick={() => onSelectPage(activePageIndex - 1)}
+            disabled={activePageIndex === 0}
+          >
             <ChevronLeft />
           </Button>
-          <Button size="icon" variant="outline" onClick={() => onMovePage(activePageIndex, 'down')} disabled={activePageIndex === pages.length - 1}>
+          <Button
+            size="icon"
+            variant="outline"
+            onClick={() => onSelectPage(activePageIndex + 1)}
+            disabled={activePageIndex === pages.length - 1}
+          >
             <ChevronRight />
           </Button>
           <Button size="icon" variant="outline" onClick={() => onDuplicatePage(activePageIndex)}>
@@ -146,16 +197,24 @@ export function LcdControlPanel({
           <div className="lcd-duration-row">
             <input
               type="number"
-              min={activePage.durationUnit === 's' ? 0.1 : 100}
+              inputMode="decimal"
               step={activePage.durationUnit === 's' ? 0.1 : 100}
-              value={formatDurationInput(activePage.durationMs, activePage.durationUnit)}
-              onChange={(event) => onDurationValueChange(activePageIndex, event.target.value)}
+              value={durationDraft}
+              onBlur={commitDurationDraft}
+              onChange={(event) =>
+                setDurationDraftState({
+                  pageId: activePage.id,
+                  unit: activePage.durationUnit,
+                  value: event.target.value,
+                })
+              }
+              onKeyDown={handleDurationKeyDown}
             />
             <select
               value={activePage.durationUnit}
-              onChange={(event) =>
+              onChange={(event) => {
                 onDurationUnitChange(activePageIndex, event.target.value as DurationUnit)
-              }
+              }}
             >
               {DURATION_UNIT_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
