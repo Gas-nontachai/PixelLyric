@@ -21,6 +21,15 @@ export type PageScript = {
   rowTexts: string[]
 }
 
+export type ProjectAudioTrack = {
+  name: string
+  sourceFile: File
+  objectUrl: string
+  durationMs: number
+  trimStartMs: number
+  trimEndMs: number
+}
+
 export const SCREEN_PRESETS: ScreenPreset[] = [
   { id: '16x2', label: '16 x 2', columns: 16, rows: 2 },
   { id: '20x4', label: '20 x 4', columns: 20, rows: 4 },
@@ -136,6 +145,35 @@ export function parseDurationInput(value: string, unit: DurationUnit) {
 export function formatDurationInput(durationMs: number, unit: DurationUnit) {
   const value = getDurationValue(durationMs, unit)
   return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '')
+}
+
+export function getScriptDurationMs(pages: PageScript[]) {
+  return pages.reduce((totalDuration, page) => totalDuration + page.durationMs, 0)
+}
+
+export function getPageStartOffsetMs(pages: PageScript[], pageIndex: number) {
+  if (pageIndex <= 0) {
+    return 0
+  }
+
+  return pages.slice(0, pageIndex).reduce((totalDuration, page) => totalDuration + page.durationMs, 0)
+}
+
+export function getPageAudioStartMs(
+  track: ProjectAudioTrack,
+  pages: PageScript[],
+  pageIndex: number,
+) {
+  return track.trimStartMs + getPageStartOffsetMs(pages, pageIndex)
+}
+
+export function getAudioTimelinePositionMs(
+  track: ProjectAudioTrack,
+  pages: PageScript[],
+  pageIndex: number,
+  pageProgressMs: number,
+) {
+  return getPageAudioStartMs(track, pages, pageIndex) + pageProgressMs
 }
 
 function createPage(rows: number, text: string): PageScript {

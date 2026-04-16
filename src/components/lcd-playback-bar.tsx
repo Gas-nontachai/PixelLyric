@@ -1,10 +1,12 @@
-import { Hourglass, Pause, Play, RotateCcw, SkipBack, SkipForward } from 'lucide-react'
+import { Hourglass, Music2, Pause, Play, RotateCcw, SkipBack, SkipForward } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 
 type LcdPlaybackBarProps = {
   countdownRemaining: number | null
   countdownSeconds: 0 | 3 | 5 | 10
+  hasAudio: boolean
+  isAudioPanelOpen: boolean
   isLooping: boolean
   isPlaying: boolean
   onCountdownCycle: () => void
@@ -13,12 +15,15 @@ type LcdPlaybackBarProps = {
   onPlay: () => void
   onPrev: () => void
   onRestart: () => void
+  onToggleAudioPanel: () => void
   onToggleLoop: () => void
 }
 
 export function LcdPlaybackBar({
   countdownRemaining,
   countdownSeconds,
+  hasAudio,
+  isAudioPanelOpen,
   isLooping,
   isPlaying,
   onCountdownCycle,
@@ -27,6 +32,7 @@ export function LcdPlaybackBar({
   onPlay,
   onPrev,
   onRestart,
+  onToggleAudioPanel,
   onToggleLoop,
 }: LcdPlaybackBarProps) {
   const isActive = isPlaying || countdownRemaining !== null
@@ -50,6 +56,16 @@ export function LcdPlaybackBar({
       </Button>
       <Button size="icon" variant="outline" onClick={onRestart} aria-label="Restart page">
         <RotateCcw />
+      </Button>
+      <Button
+        size="icon"
+        variant={isAudioPanelOpen ? 'secondary' : 'outline'}
+        className={hasAudio ? 'lcd-playback-audio-button-loaded' : ''}
+        onClick={onToggleAudioPanel}
+        aria-label={isAudioPanelOpen ? 'Hide MP3 dialog' : 'Show MP3 dialog'}
+        aria-pressed={isAudioPanelOpen}
+      >
+        <Music2 />
       </Button>
       <Button
         size="sm"

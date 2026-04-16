@@ -16,10 +16,12 @@ function App() {
     preset,
     pages,
     playback,
+    audio,
     countdownRemaining,
     countdownSeconds,
     displayRows,
     editorActions,
+    audioActions,
     playbackActions,
   } =
     useLcdStudio()
@@ -36,6 +38,7 @@ function App() {
     <main className="lcd-app-shell">
       <section className={appClassName}>
         <LcdPreviewStage
+          audio={audio}
           columns={preset.columns}
           rows={preset.rows}
           displayRows={displayRows}
@@ -44,11 +47,18 @@ function App() {
           isEditorOpen={isEditorOpen}
           isLooping={playback.isLooping}
           isPlaying={playback.isPlaying}
+          onAudioClear={audioActions.clear}
+          onAudioImport={audioActions.importFile}
+          onAudioPreviewSeek={audioActions.seekPreview}
+          onAudioPreviewTogglePlay={audioActions.togglePreviewPlayback}
+          onAudioTrimEndChange={audioActions.setTrimEndMs}
+          onAudioTrimStartChange={audioActions.setTrimStartMs}
           onNext={playbackActions.next}
           onPause={playbackActions.pause}
           onPlay={playbackActions.play}
           onPrev={playbackActions.prev}
           onRestart={playbackActions.restart}
+          onShowToast={showToast}
           onToggleEditor={toggleEditor}
           onToggleLoop={playbackActions.toggleLoop}
           onCountdownCycle={playbackActions.cycleCountdownSeconds}
