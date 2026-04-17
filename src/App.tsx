@@ -1,7 +1,9 @@
 import { useCallback, useEffect } from 'react'
 
 import { LcdControlPanel } from '@/components/lcd-control-panel'
+import { LcdDialogRegion } from '@/components/lcd-dialog-region'
 import { LcdPreviewStage } from '@/components/lcd-preview-stage'
+import { useDialog } from '@/hooks/use-dialog'
 import { useLcdStudio } from '@/hooks/use-lcd-studio'
 import { useProjectPersistence } from '@/hooks/use-project-persistence'
 import { useResponsiveEditorDock } from '@/hooks/use-responsive-editor-dock'
@@ -13,6 +15,14 @@ function App() {
   const { viewportMode, isMobile } = useViewportMode()
   const { isEditorOpen, toggleEditor } = useResponsiveEditorDock(viewportMode)
   const { showToast, toasts } = useToast()
+  const {
+    activeDialog,
+    confirm,
+    confirmActiveDialog,
+    dismissActiveDialog,
+    prompt,
+    submitPromptDialog,
+  } = useDialog()
   const {
     presets,
     screenType,
@@ -88,7 +98,22 @@ function App() {
   )
 
   const handleProjectSaveShortcut = useCallback(async (saveAs = false) => {
-    const result = saveAs ? await saveProjectAs(window.prompt('Save project as', projectName) ?? undefined) : await saveProject()
+    const nextProjectName = saveAs
+      ? await prompt({
+          confirmLabel: 'Save project',
+          defaultValue: projectName,
+          description: 'Choose a file name for the exported PixelLyric project.',
+          inputLabel: 'Project name',
+          inputPlaceholder: 'Untitled',
+          title: 'Save project as',
+        })
+      : null
+
+    if (saveAs && nextProjectName === null) {
+      return
+    }
+
+    const result = saveAs ? await saveProjectAs(nextProjectName ?? undefined) : await saveProject()
 
     if (result.message) {
       showToast(result.message, {
@@ -96,7 +121,7 @@ function App() {
         variant: result.ok ? 'success' : 'error',
       })
     }
-  }, [projectName, saveProject, saveProjectAs, showToast])
+  }, [projectName, prompt, saveProject, saveProjectAs, showToast])
 
   useProjectPersistence({
     autosaveKey: projectAutosaveKey,
@@ -153,7 +178,9 @@ function App() {
           onNext={playbackActions.next}
           onPause={playbackActions.pause}
           onPlay={playbackActions.play}
+          onProjectConfirm={confirm}
           onProjectNew={handleProjectNew}
+          onProjectPrompt={prompt}
           onProjectRename={handleProjectRename}
           onProjectSave={handleProjectSave}
           onProjectSaveAs={handleProjectSaveAs}
@@ -202,6 +229,12 @@ function App() {
           />
         ) : null}
       </section>
+      <LcdDialogRegion
+        activeDialog={activeDialog}
+        onConfirm={confirmActiveDialog}
+        onDismiss={dismissActiveDialog}
+        onPromptSubmit={submitPromptDialog}
+      />
       <LcdToastRegion toasts={toasts}  />
     </main>
   )

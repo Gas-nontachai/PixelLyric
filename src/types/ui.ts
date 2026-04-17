@@ -18,6 +18,56 @@ export type ToastItem = {
   variant: ToastVariant
 }
 
+export type DialogIntent = 'default' | 'success' | 'warning' | 'danger'
+
+type BaseDialogOptions = {
+  allowBackdropDismiss?: boolean
+  allowEscapeDismiss?: boolean
+  confirmLabel?: string
+  description?: ReactNode
+  intent?: DialogIntent
+  showCloseButton?: boolean
+  title: ReactNode
+}
+
+export type ConfirmDialogOptions = BaseDialogOptions & {
+  cancelLabel?: string
+}
+
+export type PromptDialogOptions = BaseDialogOptions & {
+  cancelLabel?: string
+  defaultValue?: string
+  inputLabel?: ReactNode
+  inputPlaceholder?: string
+  validate?: (value: string) => string | undefined
+}
+
+export type AlertDialogOptions = BaseDialogOptions
+
+type BaseDialogItem = BaseDialogOptions & {
+  id: string
+}
+
+export type ConfirmDialogItem = BaseDialogItem & {
+  cancelLabel: string
+  kind: 'confirm'
+}
+
+export type PromptDialogItem = BaseDialogItem & {
+  cancelLabel: string
+  defaultValue: string
+  inputLabel?: ReactNode
+  inputPlaceholder?: string
+  kind: 'prompt'
+  validate?: (value: string) => string | undefined
+}
+
+export type AlertDialogItem = BaseDialogItem & {
+  kind: 'alert'
+}
+
+export type DialogItem = ConfirmDialogItem | PromptDialogItem | AlertDialogItem
+
 export type ViewportMode = 'mobile' | 'tablet' | 'desktop'
 
 export type IconDropdownMenuItem = {

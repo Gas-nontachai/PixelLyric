@@ -3,24 +3,40 @@ import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 type DialogProps = {
+  cardClassName?: string
   children: ReactNode
+  closeOnBackdrop?: boolean
+  closeOnEscape?: boolean
   description?: ReactNode
   footer?: ReactNode
   onOpenChange: (open: boolean) => void
   open: boolean
+  showCloseButton?: boolean
   title: ReactNode
 }
 
-export function Dialog({ children, description, footer, onOpenChange, open, title }: DialogProps) {
+export function Dialog({
+  cardClassName,
+  children,
+  closeOnBackdrop = true,
+  closeOnEscape = true,
+  description,
+  footer,
+  onOpenChange,
+  open,
+  showCloseButton = true,
+  title,
+}: DialogProps) {
   useEffect(() => {
     if (!open) {
       return
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (closeOnEscape && event.key === 'Escape') {
         onOpenChange(false)
       }
     }
@@ -33,7 +49,7 @@ export function Dialog({ children, description, footer, onOpenChange, open, titl
       document.body.style.overflow = previousOverflow
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [onOpenChange, open])
+  }, [closeOnEscape, onOpenChange, open])
 
   if (!open) {
     return null
@@ -41,16 +57,22 @@ export function Dialog({ children, description, footer, onOpenChange, open, titl
 
   return createPortal(
     <div className="lcd-dialog-root" role="dialog" aria-modal="true" aria-label={String(title)}>
-      <div className="lcd-dialog-backdrop" onClick={() => onOpenChange(false)} />
-      <div className="lcd-dialog-card">
+      <div className="lcd-dialog-backdrop" onClick={() => {
+        if (closeOnBackdrop) {
+          onOpenChange(false)
+        }
+      }} />
+      <div className={cn('lcd-dialog-card', cardClassName)}>
         <div className="lcd-dialog-header">
           <div className="lcd-dialog-heading">
             <h2>{title}</h2>
             {description ? <p>{description}</p> : null}
           </div>
-          <Button size="icon" variant="outline" onClick={() => onOpenChange(false)} aria-label="Close dialog">
-            <X />
-          </Button>
+          {showCloseButton ? (
+            <Button size="icon" variant="outline" onClick={() => onOpenChange(false)} aria-label="Close dialog">
+              <X />
+            </Button>
+          ) : null}
         </div>
         <div className="lcd-dialog-body">{children}</div>
         {footer ? <div className="lcd-dialog-footer">{footer}</div> : null}

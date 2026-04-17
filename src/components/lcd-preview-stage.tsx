@@ -15,6 +15,8 @@ import {
 } from '@/lib/project-file-system'
 import type {
   AudioActionResult,
+  ConfirmDialogOptions,
+  PromptDialogOptions,
   ProjectActionResult,
   ProjectAudioTrack,
   ProjectFileHandle,
@@ -71,7 +73,9 @@ type LcdPreviewStageProps = {
   onNext: () => void
   onPause: () => void
   onPlay: () => void
+  onProjectConfirm: (options: ConfirmDialogOptions) => Promise<boolean>
   onProjectNew: () => Promise<ProjectActionResult> | ProjectActionResult
+  onProjectPrompt: (options: PromptDialogOptions) => Promise<string | null>
   onProjectRename: (nextProjectName: string) => ProjectActionResult
   onProjectSave: () => Promise<ProjectActionResult>
   onProjectSaveAs: (nextProjectName?: string) => Promise<ProjectActionResult>
@@ -113,7 +117,9 @@ export function LcdPreviewStage({
   onNext,
   onPause,
   onPlay,
+  onProjectConfirm,
   onProjectNew,
+  onProjectPrompt,
   onProjectRename,
   onProjectSave,
   onProjectSaveAs,
@@ -208,7 +214,12 @@ export function LcdPreviewStage({
   }
 
   const handleProjectNew = useCallback(async () => {
-    const shouldProceed = !isDirty || window.confirm('Discard unsaved changes and create a new project?')
+    const shouldProceed = !isDirty || await onProjectConfirm({
+      confirmLabel: 'Discard changes',
+      description: 'Your current project has unsaved changes. Starting a new project will remove them.',
+      intent: 'warning',
+      title: 'Create a new project?',
+    })
 
     if (!shouldProceed) {
       return
@@ -216,7 +227,7 @@ export function LcdPreviewStage({
 
     const result = await onProjectNew()
     showProjectToast(result)
-  }, [isDirty, onProjectNew, showProjectToast])
+  }, [isDirty, onProjectConfirm, onProjectNew, showProjectToast])
 
   const handleProjectSave = async () => {
     const result = await onProjectSave()
@@ -224,7 +235,19 @@ export function LcdPreviewStage({
   }
 
   const handleProjectSaveAs = async () => {
-    const nextProjectName = window.prompt('Save project as', projectName)
+    const nextProjectName = await onProjectPrompt({
+      confirmLabel: 'Save project',
+      defaultValue: projectName,
+      description: 'Choose a file name for the exported PixelLyric project.',
+      inputLabel: 'Project name',
+      inputPlaceholder: 'Untitled',
+      title: 'Save project as',
+    })
+
+    if (nextProjectName === null) {
+      return
+    }
+
     const result = await onProjectSaveAs(nextProjectName ?? undefined)
     showProjectToast(result)
   }
@@ -235,7 +258,12 @@ export function LcdPreviewStage({
   }
 
   const handleOpenProjectPicker = useCallback(async () => {
-    if (isDirty && !window.confirm('Discard unsaved changes and open another project?')) {
+    if (isDirty && !await onProjectConfirm({
+      confirmLabel: 'Discard changes',
+      description: 'Opening another project will replace the current unsaved project in the studio.',
+      intent: 'warning',
+      title: 'Open another project?',
+    })) {
       return
     }
 
@@ -267,7 +295,7 @@ export function LcdPreviewStage({
     }
 
     projectFileInputRef.current?.click()
-  }, [isDirty, onProjectImport, showProjectToast])
+  }, [isDirty, onProjectConfirm, onProjectImport, showProjectToast])
 
   useEffect(() => {
     const handleKeyDown = (event: globalThis.KeyboardEvent) => {

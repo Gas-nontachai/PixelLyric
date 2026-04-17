@@ -419,6 +419,10 @@
   box-shadow: 0 36px 80px rgba(17, 34, 23, 0.22);
 }
 
+.lcd-dialog-card-compact {
+  width: min(720px, 100%);
+}
+
 .lcd-dialog-header {
   display: flex;
   align-items: flex-start;
@@ -441,6 +445,98 @@
 
 .lcd-dialog-body {
   display: grid;
+}
+
+.lcd-dialog-footer {
+  margin-top: 18px;
+}
+
+.lcd-message-dialog {
+  display: grid;
+  gap: 16px;
+}
+
+.lcd-message-dialog-copy {
+  margin: 0;
+  color: var(--muted-foreground);
+  line-height: 1.6;
+}
+
+.lcd-message-dialog-title-wrap {
+  display: grid;
+  gap: 10px;
+}
+
+.lcd-message-dialog-intent-chip {
+  width: fit-content;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: var(--lcd-message-dialog-accent);
+  color: var(--lcd-message-dialog-accent-foreground);
+}
+
+.lcd-message-dialog-default {
+  --lcd-message-dialog-accent: rgba(28, 86, 41, 0.12);
+  --lcd-message-dialog-accent-foreground: rgba(17, 68, 30, 0.95);
+}
+
+.lcd-message-dialog-success {
+  --lcd-message-dialog-accent: rgba(17, 124, 45, 0.14);
+  --lcd-message-dialog-accent-foreground: rgba(14, 101, 35, 0.98);
+}
+
+.lcd-message-dialog-warning {
+  --lcd-message-dialog-accent: rgba(173, 118, 6, 0.16);
+  --lcd-message-dialog-accent-foreground: rgba(113, 71, 0, 0.98);
+}
+
+.lcd-message-dialog-danger {
+  --lcd-message-dialog-accent: rgba(180, 54, 37, 0.16);
+  --lcd-message-dialog-accent-foreground: rgba(138, 34, 20, 0.98);
+}
+
+.lcd-message-dialog-form {
+  display: grid;
+  gap: 12px;
+}
+
+.lcd-message-dialog-field {
+  display: grid;
+  gap: 8px;
+}
+
+.lcd-message-dialog-field span {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.lcd-message-dialog-error {
+  margin: 0;
+  color: rgba(138, 34, 20, 0.98);
+  font-size: 0.92rem;
+}
+
+.lcd-message-dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.lcd-message-dialog-confirm {
+  background: var(--lcd-message-dialog-accent-foreground);
+  color: #f9fff1;
+}
+
+.lcd-message-dialog-confirm:hover {
+  box-shadow: 0 18px 28px color-mix(in srgb, var(--lcd-message-dialog-accent-foreground) 28%, transparent);
 }
 
 .lcd-audio-panel {
