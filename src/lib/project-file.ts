@@ -347,6 +347,14 @@ function trimTrailingWhitespace(value: string) {
   return value.replace(/\s+$/g, '')
 }
 
+function escapeArduinoString(value: string) {
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\r/g, '')
+    .replace(/\n/g, ' ')
+}
+
 function getProjectExportRows(document: PixelLyricProjectDocument, page: PageScript) {
   const preset = getPresetById(document.screenType)
 
@@ -361,14 +369,287 @@ function getProjectExportRows(document: PixelLyricProjectDocument, page: PageScr
   return textToDisplayRows(normalizedText, preset.columns, preset.rows).map(trimTrailingWhitespace)
 }
 
-export function serializeProjectInoContent(document: PixelLyricProjectDocument) {
+function getProjectInoRows(document: PixelLyricProjectDocument, page: PageScript) {
+  const preset = getPresetById(document.screenType)
+
+  if (page.mode === 'scroll') {
+    return normalizeRowTexts(page.rowTexts, preset.rows).map((rowText) => rowText.replace(/\r/g, ''))
+  }
+
+  return getProjectExportRows(document, page)
+}
+
+function getInoPageModeValue(mode: PageMode) {
+  return mode === 'scroll' ? 'PAGE_MODE_SCROLL' : 'PAGE_MODE_STATIC'
+}
+
+function getInoAnimationValue(animation: LcdAnimation) {
+  switch (animation) {
+    case 'typewriter':
+      return 'ANIMATION_TYPEWRITER'
+    case 'scroll-left':
+      return 'ANIMATION_SCROLL_LEFT'
+    case 'scroll-right':
+      return 'ANIMATION_SCROLL_RIGHT'
+    default:
+      return 'ANIMATION_REPLACE'
+  }
+}
+
+function serializeInoPageLines(document: PixelLyricProjectDocument) {
+  return document.pages
+    .map((page) => {
+      const rows = getProjectInoRows(document, page)
+      const serializedRows = rows
+        .map((rowText) => `"${escapeArduinoString(rowText)}"`)
+        .join(', ')
+
+      return `  { ${serializedRows} }`
+    })
+    .join(',\n')
+}
+
+function serializeInoPageConfigs(document: PixelLyricProjectDocument) {
   return document.pages
     .map((page, pageIndex) => {
-      const rows = getProjectExportRows(document, page)
-
-      return [`Page ${pageIndex + 1}`, ...rows].join('\n')
+      return `  {
+    ${getInoPageModeValue(page.mode)},
+    ${getInoAnimationValue(page.animation)},
+    ${Math.max(100, Math.round(page.durationMs))}UL,
+    pageLines[${pageIndex}]
+  }`
     })
-    .join('\n\n')
+    .join(',\n')
+}
+
+export function serializeProjectInoContent(document: PixelLyricProjectDocument) {
+  const preset = getPresetById(document.screenType)
+  const pageCount = document.pages.length
+  const countdownSeconds = document.countdownSeconds
+
+  return `// PixelLyric Arduino LCD export
+// Project: ${escapeArduinoString(document.projectName)}
+// Screen: ${document.screenType}
+// Requires: LiquidCrystal_I2C library
+// If your display does not respond, try changing LCD_ADDRESS from 0x27 to 0x3F.
+
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
+const uint8_t LCD_ADDRESS = 0x27;
+LiquidCrystal_I2C lcd(LCD_ADDRESS, ${preset.columns}, ${preset.rows});
+
+const uint8_t SCREEN_COLS = ${preset.columns};
+const uint8_t SCREEN_ROWS = ${preset.rows};
+const uint8_t PAGE_COUNT = ${pageCount};
+const uint8_t START_COUNTDOWN_SECONDS = ${countdownSeconds};
+
+enum PageMode {
+  PAGE_MODE_STATIC = 0,
+  PAGE_MODE_SCROLL = 1
+};
+
+enum PageAnimation {
+  ANIMATION_REPLACE = 0,
+  ANIMATION_TYPEWRITER = 1,
+  ANIMATION_SCROLL_LEFT = 2,
+  ANIMATION_SCROLL_RIGHT = 3
+};
+
+struct PageConfig {
+  uint8_t mode;
+  uint8_t animation;
+  unsigned long durationMs;
+  const char* const* rows;
+};
+
+const char* pageLines[PAGE_COUNT][SCREEN_ROWS] = {
+${serializeInoPageLines(document)}
+};
+
+const PageConfig pages[PAGE_COUNT] = {
+${serializeInoPageConfigs(document)}
+};
+
+String repeatSpaces(uint8_t count) {
+  String output = "";
+
+  for (uint8_t index = 0; index < count; index++) {
+    output += " ";
+  }
+
+  return output;
+}
+
+String fitRow(String value) {
+  value.replace("\\r", "");
+  value.replace("\\n", " ");
+
+  if (value.length() > SCREEN_COLS) {
+    value = value.substring(0, SCREEN_COLS);
+  }
+
+  while (value.length() < SCREEN_COLS) {
+    value += " ";
+  }
+
+  return value;
+}
+
+void printPageRows(String rows[SCREEN_ROWS]) {
+  for (uint8_t rowIndex = 0; rowIndex < SCREEN_ROWS; rowIndex++) {
+    lcd.setCursor(0, rowIndex);
+    lcd.print(rows[rowIndex]);
+  }
+}
+
+void renderStaticPage(uint8_t pageIndex) {
+  String rows[SCREEN_ROWS];
+  const PageConfig& page = pages[pageIndex];
+
+  for (uint8_t rowIndex = 0; rowIndex < SCREEN_ROWS; rowIndex++) {
+    rows[rowIndex] = fitRow(String(page.rows[rowIndex]));
+  }
+
+  lcd.clear();
+  printPageRows(rows);
+}
+
+void renderReplacePage(uint8_t pageIndex, unsigned long durationMs) {
+  renderStaticPage(pageIndex);
+  delay(durationMs);
+}
+
+void renderTypewriterPage(uint8_t pageIndex, unsigned long durationMs) {
+  String flattened = "";
+  const PageConfig& page = pages[pageIndex];
+
+  for (uint8_t rowIndex = 0; rowIndex < SCREEN_ROWS; rowIndex++) {
+    flattened += fitRow(String(page.rows[rowIndex]));
+  }
+
+  const uint16_t totalCharacters = flattened.length();
+
+  if (totalCharacters == 0) {
+    lcd.clear();
+    delay(durationMs);
+    return;
+  }
+
+  const unsigned long stepDelayMs = max(25UL, durationMs / totalCharacters);
+  lcd.clear();
+
+  for (uint16_t visibleCharacters = 1; visibleCharacters <= totalCharacters; visibleCharacters++) {
+    String visibleText = flattened.substring(0, visibleCharacters);
+    visibleText += repeatSpaces(totalCharacters - visibleCharacters);
+
+    for (uint8_t rowIndex = 0; rowIndex < SCREEN_ROWS; rowIndex++) {
+      const uint16_t startIndex = rowIndex * SCREEN_COLS;
+      lcd.setCursor(0, rowIndex);
+      lcd.print(visibleText.substring(startIndex, startIndex + SCREEN_COLS));
+    }
+
+    delay(stepDelayMs);
+  }
+
+  const unsigned long consumedMs = stepDelayMs * totalCharacters;
+
+  if (consumedMs < durationMs) {
+    delay(durationMs - consumedMs);
+  }
+}
+
+String buildScrollSource(const String& rowText) {
+  return repeatSpaces(SCREEN_COLS) + rowText + repeatSpaces(SCREEN_COLS);
+}
+
+void renderScrollPage(uint8_t pageIndex, bool scrollRight, unsigned long durationMs) {
+  String scrollSources[SCREEN_ROWS];
+  uint16_t maxSteps = 1;
+  const PageConfig& page = pages[pageIndex];
+
+  for (uint8_t rowIndex = 0; rowIndex < SCREEN_ROWS; rowIndex++) {
+    scrollSources[rowIndex] = buildScrollSource(String(page.rows[rowIndex]));
+    const uint16_t rowLength = scrollSources[rowIndex].length();
+    const uint16_t rowSteps = rowLength >= SCREEN_COLS ? rowLength - SCREEN_COLS + 1 : 1;
+    maxSteps = rowSteps > maxSteps ? rowSteps : maxSteps;
+  }
+
+  const unsigned long stepDelayMs = max(40UL, durationMs / maxSteps);
+
+  for (uint16_t stepIndex = 0; stepIndex < maxSteps; stepIndex++) {
+    lcd.clear();
+
+    for (uint8_t rowIndex = 0; rowIndex < SCREEN_ROWS; rowIndex++) {
+      const uint16_t rowLength = scrollSources[rowIndex].length();
+      const uint16_t rowSteps = rowLength >= SCREEN_COLS ? rowLength - SCREEN_COLS + 1 : 1;
+      const uint16_t scaledStep = rowSteps <= 1 || maxSteps <= 1
+        ? 0
+        : (stepIndex * (rowSteps - 1)) / (maxSteps - 1);
+      const uint16_t windowStart = scrollRight ? (rowSteps - 1) - scaledStep : scaledStep;
+
+      lcd.setCursor(0, rowIndex);
+      lcd.print(scrollSources[rowIndex].substring(windowStart, windowStart + SCREEN_COLS));
+    }
+
+    delay(stepDelayMs);
+  }
+
+  const unsigned long consumedMs = stepDelayMs * maxSteps;
+
+  if (consumedMs < durationMs) {
+    delay(durationMs - consumedMs);
+  }
+}
+
+void runCountdown() {
+  if (START_COUNTDOWN_SECONDS == 0) {
+    return;
+  }
+
+  for (int seconds = START_COUNTDOWN_SECONDS; seconds > 0; seconds--) {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Starting in");
+    lcd.setCursor(0, SCREEN_ROWS > 1 ? 1 : 0);
+    lcd.print(seconds);
+    delay(1000);
+  }
+
+  lcd.clear();
+}
+
+void renderPage(uint8_t pageIndex) {
+  const PageConfig& page = pages[pageIndex];
+  const unsigned long durationMs = page.durationMs;
+  const uint8_t mode = page.mode;
+  const uint8_t animation = page.animation;
+
+  if (mode == PAGE_MODE_SCROLL) {
+    renderScrollPage(pageIndex, animation == ANIMATION_SCROLL_RIGHT, durationMs);
+    return;
+  }
+
+  if (animation == ANIMATION_TYPEWRITER) {
+    renderTypewriterPage(pageIndex, durationMs);
+    return;
+  }
+
+  renderReplacePage(pageIndex, durationMs);
+}
+
+void setup() {
+  lcd.init();
+  lcd.backlight();
+  runCountdown();
+}
+
+void loop() {
+  for (uint8_t pageIndex = 0; pageIndex < PAGE_COUNT; pageIndex++) {
+    renderPage(pageIndex);
+  }
+}
+`
 }
 
 export function downloadProjectDocument(document: PixelLyricProjectDocument, fileName?: string) {
