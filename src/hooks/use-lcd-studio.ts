@@ -1,11 +1,10 @@
 import { startTransition, type ChangeEvent, useCallback, useEffect, useRef, useState } from 'react'
 
+import { DEFAULT_DURATION_MS, SCREEN_PRESETS } from '@/configs/lcd'
 import {
-  DEFAULT_DURATION_MS,
-  SCREEN_PRESETS,
   createBlankPage,
-  createDuplicatedPage,
   createInitialPage,
+  createDuplicatedPage,
   getAudioTimelinePositionMs,
   getPageAudioStartMs,
   getPresetById,
@@ -14,13 +13,38 @@ import {
   normalizePageText,
   normalizeRowTexts,
   parseDurationInput,
-  type DurationUnit,
-  type LcdAnimation,
-  type PageMode,
-  type PageScript,
-  type ProjectAudioTrack,
-  type ScreenPresetId,
 } from '@/lib/lcd'
+import {
+  createProjectDocument as buildProjectDocument,
+  downloadProjectDocument,
+  getProjectFileName,
+  normalizeProjectName,
+  parseProjectNameFromFileName,
+  parseProjectDocumentText,
+  projectDocumentToState,
+  serializeProjectDocument,
+  serializeProjectInoContent,
+} from '@/lib/project-file'
+import {
+  isProjectFilePickerAbort,
+  pickProjectSaveFileHandle,
+  writeProjectFile,
+} from '@/lib/project-file-system'
+import type {
+  AudioActionResult,
+  AudioPreviewState,
+  CountdownOption,
+  DurationUnit,
+  LcdAnimation,
+  PageMode,
+  PageScript,
+  PixelLyricProjectDocument,
+  ProjectActionResult,
+  ProjectAudioTrack,
+  ProjectFileHandle,
+  ProjectTextExportPreview,
+  ScreenPresetId,
+} from '@/types'
 
 type PlaybackState = {
   activePageIndex: number
@@ -29,21 +53,31 @@ type PlaybackState = {
   pageProgressMs: number
 }
 
-type AudioPreviewState = {
-  isPlaying: boolean
-  positionMs: number
-}
-
-type CountdownOption = 0 | 3 | 5 | 10
 const COUNTDOWN_OPTIONS: CountdownOption[] = [0, 3, 5, 10]
 const MIN_TRIM_GAP_MS = 100
 const AUDIO_DRIFT_TOLERANCE_S = 0.45
 const AUDIO_CORRECTION_COOLDOWN_MS = 1200
 
-type AudioActionResult = {
-  ok: boolean
-  message?: string
-  wasClamped?: boolean
+let untitledProjectCounter = 1
+
+function reserveUntitledProjectName(projectName: string) {
+  const match = /^Untitled-(\d+)$/i.exec(projectName.trim())
+
+  if (!match) {
+    return
+  }
+
+  const nextCounter = Number(match[1]) + 1
+
+  if (Number.isFinite(nextCounter)) {
+    untitledProjectCounter = Math.max(untitledProjectCounter, nextCounter)
+  }
+}
+
+function getNextUntitledProjectName() {
+  const nextProjectName = `Untitled-${untitledProjectCounter}`
+  untitledProjectCounter += 1
+  return nextProjectName
 }
 
 function clampTrimStartMs(value: number, track: ProjectAudioTrack) {
@@ -83,6 +117,8 @@ function pageNeedsProgressRendering(page: PageScript | undefined) {
 }
 
 export function useLcdStudio() {
+  const [projectName, setProjectName] = useState(() => getNextUntitledProjectName())
+  const [isDirty, setIsDirty] = useState(false)
   const [screenType, setScreenType] = useState<ScreenPresetId>('16x2')
   const preset = getPresetById(screenType)
   const [pages, setPages] = useState<PageScript[]>(() => [createInitialPage(preset.rows)])
@@ -104,6 +140,7 @@ export function useLcdStudio() {
   const pagesRef = useRef(pages)
   const audioTrackRef = useRef(audioTrack)
   const audioElementRef = useRef<HTMLAudioElement | null>(null)
+  const currentProjectFileHandleRef = useRef<ProjectFileHandle | null>(null)
   const audioSyncRef = useRef({
     lastCorrectionAt: 0,
     lastPageIndex: -1,
@@ -177,6 +214,34 @@ export function useLcdStudio() {
       positionMs: nextPositionMs ?? currentPreview.positionMs,
     }))
   }, [])
+
+  const replaceAudioTrack = useCallback((nextTrack: ProjectAudioTrack | null, nextPositionMs?: number) => {
+    const previousObjectUrl = audioTrackRef.current?.objectUrl
+    const audioElement = nextTrack ? ensureAudioElement() : audioElementRef.current
+
+    if (audioElement) {
+      audioElement.pause()
+
+      if (nextTrack) {
+        audioElement.src = nextTrack.objectUrl
+      } else {
+        audioElement.removeAttribute('src')
+      }
+
+      audioElement.load()
+    }
+
+    audioTrackRef.current = nextTrack
+    setAudioTrack(nextTrack)
+    setAudioPreview({
+      isPlaying: false,
+      positionMs: nextTrack ? clampPreviewPositionMs(nextPositionMs ?? nextTrack.trimStartMs, nextTrack) : 0,
+    })
+
+    if (previousObjectUrl && previousObjectUrl !== nextTrack?.objectUrl) {
+      URL.revokeObjectURL(previousObjectUrl)
+    }
+  }, [ensureAudioElement])
 
   const syncAudioToTimeline = useCallback(({
     pageIndex,
@@ -482,6 +547,7 @@ export function useLcdStudio() {
       ...currentPlayback,
       pageProgressMs: 0,
     }))
+    setIsDirty(true)
   }
 
   const handleSelectPage = (pageIndex: number) => {
@@ -493,6 +559,7 @@ export function useLcdStudio() {
 
     setPages((currentPages) => [...currentPages, nextPage])
     resetPlaybackToPage(pages.length, false)
+    setIsDirty(true)
   }
 
   const handleDuplicatePage = (pageIndex: number) => {
@@ -504,6 +571,7 @@ export function useLcdStudio() {
     })
 
     resetPlaybackToPage(pageIndex + 1, false)
+    setIsDirty(true)
   }
 
   const handleDeletePage = (pageIndex: number) => {
@@ -513,6 +581,7 @@ export function useLcdStudio() {
 
     setPages((currentPages) => currentPages.filter((_, index) => index !== pageIndex))
     resetPlaybackToPage(Math.max(0, pageIndex - 1), false)
+    setIsDirty(true)
   }
 
   const handleMovePage = (pageIndex: number, direction: 'up' | 'down') => {
@@ -530,6 +599,7 @@ export function useLcdStudio() {
     })
 
     resetPlaybackToPage(nextIndex, false)
+    setIsDirty(true)
   }
 
   const handlePageModeChange = (pageIndex: number, mode: PageMode) => {
@@ -541,16 +611,19 @@ export function useLcdStudio() {
       rowTexts: normalizeRowTexts(page.rowTexts, preset.rows),
     }))
     resetPlaybackToPage(pageIndex, false)
+    setIsDirty(true)
   }
 
   const handlePageAnimationChange = (pageIndex: number, animation: LcdAnimation) => {
     updatePage(pageIndex, (page) => ({ ...page, animation }))
     resetPlaybackToPage(pageIndex, false)
+    setIsDirty(true)
   }
 
   const handlePageTextChange = (pageIndex: number, event: ChangeEvent<HTMLTextAreaElement>) => {
     const nextText = normalizePageText(event.target.value, preset.columns, preset.rows)
     updatePage(pageIndex, (page) => ({ ...page, text: nextText }))
+    setIsDirty(true)
   }
 
   const handleRowTextChange = (pageIndex: number, rowIndex: number, value: string) => {
@@ -560,6 +633,7 @@ export function useLcdStudio() {
         index === rowIndex ? value : rowText,
       ),
     }))
+    setIsDirty(true)
   }
 
   const handleDurationValueChange = (pageIndex: number, value: string) => {
@@ -601,6 +675,8 @@ export function useLcdStudio() {
       }))
     }
 
+    setIsDirty(true)
+
     return {
       durationMs: nextDurationMs,
       wasClamped,
@@ -613,6 +689,7 @@ export function useLcdStudio() {
       durationUnit: unit,
       durationMs: Math.max(page.durationMs, DEFAULT_DURATION_MS / 20),
     }))
+    setIsDirty(true)
   }
 
   const handleImportAudioFile = async (file: File | null): Promise<AudioActionResult> => {
@@ -664,29 +741,14 @@ export function useLcdStudio() {
         }
       }
 
-      const previousObjectUrl = audioTrackRef.current?.objectUrl
-      const audioElement = ensureAudioElement()
-
-      audioElement.pause()
-      audioElement.src = nextObjectUrl
-      audioElement.load()
-
-      setAudioTrack({
+      replaceAudioTrack({
         name: file.name,
         sourceFile: file,
         objectUrl: nextObjectUrl,
         durationMs,
         trimStartMs: 0,
         trimEndMs: durationMs,
-      })
-      setAudioPreview({
-        isPlaying: false,
-        positionMs: 0,
-      })
-
-      if (previousObjectUrl) {
-        URL.revokeObjectURL(previousObjectUrl)
-      }
+      }, 0)
 
       syncAudioToTimeline({
         pageIndex: playbackRef.current.activePageIndex,
@@ -694,6 +756,8 @@ export function useLcdStudio() {
         shouldPlay: playbackRef.current.isPlaying,
         forceSeek: true,
       })
+
+      setIsDirty(true)
 
       return { ok: true }
     } catch {
@@ -706,22 +770,267 @@ export function useLcdStudio() {
   }
 
   const handleClearAudio = () => {
-    const previousObjectUrl = audioTrackRef.current?.objectUrl
-    const audioElement = audioElementRef.current
-
-    if (audioElement) {
-      audioElement.pause()
-      audioElement.removeAttribute('src')
-      audioElement.load()
-    }
-
-    setAudioTrack(null)
-    stopAudioPreview(0)
-
-    if (previousObjectUrl) {
-      URL.revokeObjectURL(previousObjectUrl)
-    }
+    replaceAudioTrack(null, 0)
+    setIsDirty(true)
   }
+
+  const applyProjectState = useCallback((nextProjectState: {
+    projectName: string
+    screenType: ScreenPresetId
+    countdownSeconds: CountdownOption
+    pages: PageScript[]
+    audioTrack: ProjectAudioTrack | null
+    projectFileHandle?: ProjectFileHandle | null
+    isDirty?: boolean
+  }) => {
+    const nextPreset = getPresetById(nextProjectState.screenType)
+    const nextProjectName = normalizeProjectName(nextProjectState.projectName)
+    const nextPages = normalizePagesForPreset(
+      nextProjectState.pages.length > 0
+        ? nextProjectState.pages
+        : [createInitialPage(nextPreset.rows)],
+      nextPreset.columns,
+      nextPreset.rows,
+    )
+    const nextPlaybackState: PlaybackState = {
+      activePageIndex: 0,
+      isPlaying: false,
+      isLooping: false,
+      pageProgressMs: 0,
+    }
+
+    stopAudioPreview(nextProjectState.audioTrack?.trimStartMs ?? 0)
+    setCountdownRemaining(null)
+    currentProjectFileHandleRef.current = nextProjectState.projectFileHandle ?? null
+    reserveUntitledProjectName(nextProjectName)
+    setProjectName(nextProjectName)
+    setScreenType(nextProjectState.screenType)
+    pagesRef.current = nextPages
+    setPages(nextPages)
+    setCountdownSeconds(nextProjectState.countdownSeconds)
+    setIsDirty(nextProjectState.isDirty ?? false)
+    playbackRef.current = nextPlaybackState
+    setPlayback(nextPlaybackState)
+    replaceAudioTrack(nextProjectState.audioTrack, nextProjectState.audioTrack?.trimStartMs ?? 0)
+
+    syncAudioToTimeline({
+      pageIndex: 0,
+      pageProgressMs: 0,
+      shouldPlay: false,
+      forceSeek: true,
+    })
+  }, [replaceAudioTrack, stopAudioPreview, syncAudioToTimeline])
+
+  const createProjectSnapshot = useCallback(async () => {
+    return buildProjectDocument({
+      projectName,
+      screenType,
+      countdownSeconds,
+      pages: pagesRef.current,
+      audioTrack: audioTrackRef.current,
+    })
+  }, [countdownSeconds, projectName, screenType])
+
+  const loadProjectSnapshot = useCallback(async (
+    document: PixelLyricProjectDocument,
+    options?: {
+      source?: 'autosave' | 'file'
+      fallbackProjectName?: string
+      projectFileHandle?: ProjectFileHandle | null
+    },
+  ): Promise<ProjectActionResult> => {
+    try {
+      const nextProjectState = await projectDocumentToState(document)
+      const nextProjectName = document.projectName || options?.fallbackProjectName || getNextUntitledProjectName()
+
+      applyProjectState({
+        ...nextProjectState,
+        projectName: nextProjectName,
+        projectFileHandle: options?.projectFileHandle ?? null,
+        isDirty: options?.source === 'autosave',
+      })
+
+      return {
+        ok: true,
+        message: options?.source === 'autosave' ? 'Autosaved project restored' : 'Project opened',
+      }
+    } catch (error) {
+      return {
+        ok: false,
+        message: error instanceof Error ? error.message : 'Could not load the project',
+      }
+    }
+  }, [applyProjectState])
+
+  const saveProjectAs = useCallback(async (nextProjectName?: string): Promise<ProjectActionResult> => {
+    const providedProjectName = nextProjectName?.trim()
+
+    if (!providedProjectName) {
+      return {
+        ok: false,
+      }
+    }
+
+    const normalizedNextProjectName = normalizeProjectName(providedProjectName)
+
+    try {
+      const projectDocument = await buildProjectDocument({
+        projectName: normalizedNextProjectName,
+        screenType,
+        countdownSeconds,
+        pages: pagesRef.current,
+        audioTrack: audioTrackRef.current,
+      })
+
+      const suggestedFileName = getProjectFileName(normalizedNextProjectName)
+      const fileHandle = await pickProjectSaveFileHandle(suggestedFileName)
+
+      if (fileHandle) {
+        await writeProjectFile(fileHandle, serializeProjectDocument(projectDocument))
+        currentProjectFileHandleRef.current = fileHandle
+      } else {
+        downloadProjectDocument(projectDocument, suggestedFileName)
+        currentProjectFileHandleRef.current = null
+      }
+
+      reserveUntitledProjectName(normalizedNextProjectName)
+      setProjectName(normalizedNextProjectName)
+      setIsDirty(false)
+
+      return {
+        ok: true,
+        message: `Saved as ${normalizedNextProjectName}`,
+      }
+    } catch (error) {
+      if (isProjectFilePickerAbort(error)) {
+        return {
+          ok: false,
+        }
+      }
+
+      return {
+        ok: false,
+        message: error instanceof Error ? error.message : 'Could not save the project',
+      }
+    }
+  }, [countdownSeconds, screenType])
+
+  const saveProject = useCallback(async (): Promise<ProjectActionResult> => {
+    const currentFileHandle = currentProjectFileHandleRef.current
+
+    if (!currentFileHandle) {
+      return saveProjectAs(projectName)
+    }
+
+    try {
+      const projectDocument = await createProjectSnapshot()
+      await writeProjectFile(currentFileHandle, serializeProjectDocument(projectDocument))
+      setIsDirty(false)
+
+      return {
+        ok: true,
+        message: 'Project saved',
+      }
+    } catch (error) {
+      currentProjectFileHandleRef.current = null
+
+      return {
+        ok: false,
+        message: error instanceof Error ? error.message : 'Could not save the project',
+      }
+    }
+  }, [createProjectSnapshot, projectName, saveProjectAs])
+
+  const createProjectJsonExportPreview = useCallback(async (): Promise<ProjectTextExportPreview> => {
+    const projectDocument = await createProjectSnapshot()
+
+    return {
+      content: serializeProjectDocument(projectDocument),
+      fileName: getProjectFileName(projectDocument.projectName, '.json'),
+      mimeType: 'application/json',
+    }
+  }, [createProjectSnapshot])
+
+  const createProjectInoExportPreview = useCallback(async (): Promise<ProjectTextExportPreview> => {
+    const projectDocument = await createProjectSnapshot()
+
+    return {
+      content: serializeProjectInoContent(projectDocument),
+      fileName: getProjectFileName(projectDocument.projectName, '.ino'),
+      mimeType: 'text/plain;charset=utf-8',
+    }
+  }, [createProjectSnapshot])
+
+  const renameProject = useCallback((nextProjectName: string): ProjectActionResult => {
+    const normalizedNextProjectName = normalizeProjectName(nextProjectName)
+
+    if (normalizedNextProjectName === projectName) {
+      return {
+        ok: true,
+      }
+    }
+
+    reserveUntitledProjectName(normalizedNextProjectName)
+    setProjectName(normalizedNextProjectName)
+    setIsDirty(true)
+
+    return {
+      ok: true,
+    }
+  }, [projectName])
+
+  const newProject = useCallback((): ProjectActionResult => {
+    const nextProjectName = getNextUntitledProjectName()
+
+    applyProjectState({
+      projectName: nextProjectName,
+      screenType: '16x2',
+      countdownSeconds: 0,
+      pages: [createInitialPage(getPresetById('16x2').rows)],
+      audioTrack: null,
+      projectFileHandle: null,
+      isDirty: false,
+    })
+
+    return {
+      ok: true,
+      message: `Created ${nextProjectName}`,
+    }
+  }, [applyProjectState])
+
+  const importProjectFile = useCallback(async (
+    file: File | null,
+    options?: { fileHandle?: ProjectFileHandle | null },
+  ): Promise<ProjectActionResult> => {
+    if (!file) {
+      return {
+        ok: false,
+        message: 'No project file selected',
+      }
+    }
+
+    try {
+      const projectText = await file.text()
+      const projectDocument = parseProjectDocumentText(projectText)
+      const result = await loadProjectSnapshot(projectDocument, {
+        source: 'file',
+        fallbackProjectName: parseProjectNameFromFileName(file.name),
+        projectFileHandle: options?.fileHandle ?? null,
+      })
+
+      return result.ok
+        ? {
+            ok: true,
+          message: 'Project opened',
+          }
+        : result
+    } catch (error) {
+      return {
+        ok: false,
+        message: error instanceof Error ? error.message : 'Could not import the project',
+      }
+    }
+  }, [loadProjectSnapshot])
 
   const handleTrimStartChange = (nextTrimStartMs: number): AudioActionResult => {
     const track = audioTrackRef.current
@@ -752,6 +1061,8 @@ export function useLcdStudio() {
       ...currentPreview,
       positionMs: nextPreviewPositionMs,
     }))
+
+    setIsDirty(true)
 
     if (audioElementRef.current) {
       audioElementRef.current.currentTime = nextPreviewPositionMs / 1000
@@ -793,6 +1104,8 @@ export function useLcdStudio() {
       isPlaying: currentPreview.isPlaying && nextPreviewPositionMs < clampedTrimEndMs,
       positionMs: nextPreviewPositionMs,
     }))
+
+    setIsDirty(true)
 
     if (audioElementRef.current) {
       audioElementRef.current.currentTime = nextPreviewPositionMs / 1000
@@ -950,6 +1263,7 @@ export function useLcdStudio() {
         return COUNTDOWN_OPTIONS[nextIndex]
       })
       setCountdownRemaining(null)
+      setIsDirty(true)
     },
   }
 
@@ -966,6 +1280,23 @@ export function useLcdStudio() {
     ? currentPageAudioStartMs !== null && currentPageAudioStartMs < audioTrack.trimEndMs
     : false
   const audioOverflowMs = audioTrack ? Math.max(0, scriptDurationMs - trimmedAudioDurationMs) : 0
+  const projectAutosaveKey = JSON.stringify({
+    projectName,
+    isDirty,
+    screenType,
+    countdownSeconds,
+    pages,
+    audioTrack: audioTrack
+      ? {
+          name: audioTrack.name,
+          durationMs: audioTrack.durationMs,
+          trimStartMs: audioTrack.trimStartMs,
+          trimEndMs: audioTrack.trimEndMs,
+          fileSize: audioTrack.sourceFile.size,
+          lastModified: audioTrack.sourceFile.lastModified,
+        }
+      : null,
+  })
 
   return {
     presets: SCREEN_PRESETS,
@@ -974,8 +1305,11 @@ export function useLcdStudio() {
     pages,
     activePage,
     playback,
+    projectName,
+    isDirty,
     countdownRemaining,
     countdownSeconds,
+    projectAutosaveKey,
     audio: {
       track: audioTrack,
       scriptDurationMs,
@@ -1011,6 +1345,17 @@ export function useLcdStudio() {
       setTrimEndMs: handleTrimEndChange,
       togglePreviewPlayback: toggleAudioPreviewPlayback,
       seekPreview: seekAudioPreview,
+    },
+    projectActions: {
+      createSnapshot: createProjectSnapshot,
+      loadSnapshot: loadProjectSnapshot,
+      newProject,
+      renameProject,
+      saveProject,
+      saveProjectAs,
+      createProjectJsonExportPreview,
+      createProjectInoExportPreview,
+      importProjectFile,
     },
     playbackActions,
   }

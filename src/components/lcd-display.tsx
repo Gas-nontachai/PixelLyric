@@ -1,6 +1,6 @@
 import { memo, type CSSProperties } from 'react'
 
-import { FONT, type PixelChar } from '@/components/lcd-font'
+import { FONT, type PixelChar } from '@/configs/lcd-font'
 
 type LcdDisplayProps = {
   columns: number

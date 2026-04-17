@@ -1,10 +1,8 @@
-// lcd-font.ts
 // Full 5x8 LCD font (A-Z, a-z, 0-9 + space)
 
 export type PixelChar = number[][]
 
-// Helper empty char
-const EMPTY: PixelChar = Array.from({ length: 8 }, () => [0,0,0,0,0])
+const EMPTY: PixelChar = Array.from({ length: 8 }, () => [0, 0, 0, 0, 0])
 
 function alignCharToBottom(pixels: PixelChar): PixelChar {
   const visibleRows = pixels.filter((row) => row.some(Boolean))
@@ -13,17 +11,16 @@ function alignCharToBottom(pixels: PixelChar): PixelChar {
     return pixels
   }
 
-  const topPadding = Array.from({ length: pixels.length - visibleRows.length }, () => [0,0,0,0,0])
+  const topPadding = Array.from({ length: pixels.length - visibleRows.length }, () => [0, 0, 0, 0, 0])
   return [...topPadding, ...visibleRows]
 }
 
 function alignFontRecordToBottom(font: Record<string, PixelChar>) {
   return Object.fromEntries(
-    Object.entries(font).map(([char, pixels]) => [char, alignCharToBottom(pixels)])
+    Object.entries(font).map(([char, pixels]) => [char, alignCharToBottom(pixels)]),
   ) as Record<string, PixelChar>
 }
 
-// Uppercase (A-Z)
 export const FONT_UPPER: Record<string, PixelChar> = {
   A: [[0,1,1,1,0],[1,0,0,0,1],[1,1,1,1,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[0,0,0,0,0],[0,0,0,0,0]],
   B: [[1,1,1,1,0],[1,0,0,0,1],[1,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[1,1,1,1,0],[0,0,0,0,0],[0,0,0,0,0]],
@@ -53,7 +50,6 @@ export const FONT_UPPER: Record<string, PixelChar> = {
   Z: [[1,1,1,1,1],[0,0,0,0,1],[0,0,0,1,0],[0,0,1,0,0],[0,1,0,0,0],[1,1,1,1,1],[0,0,0,0,0],[0,0,0,0,0]],
 }
 
-// Lowercase
 export const FONT_LOWER: Record<string, PixelChar> = {
   a: [[0,0,0,0,0],[0,0,0,0,0],[0,1,1,1,0],[0,0,0,0,1],[0,1,1,1,1],[1,0,0,0,1],[0,1,1,1,1],[0,0,0,0,0]],
   b: [[1,0,0,0,0],[1,0,0,0,0],[1,0,1,1,0],[1,1,0,0,1],[1,0,0,0,1],[1,1,0,0,1],[1,0,1,1,0],[0,0,0,0,0]],
@@ -83,7 +79,6 @@ export const FONT_LOWER: Record<string, PixelChar> = {
   z: [[0,0,0,0,0],[0,0,0,0,0],[1,1,1,1,1],[0,0,0,1,0],[0,0,1,0,0],[0,1,0,0,0],[1,1,1,1,1],[0,0,0,0,0]],
 }
 
-// Numbers
 export const FONT_NUM: Record<string, PixelChar> = {
   '0': [[0,1,1,1,0],[1,0,0,0,1],[1,0,1,0,1],[1,0,0,0,1],[1,0,0,0,1],[0,1,1,1,0],[0,0,0,0,0],[0,0,0,0,0]],
   '1': [[0,0,1,0,0],[0,1,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,1,1,1,0],[0,0,0,0,0],[0,0,0,0,0]],
@@ -97,7 +92,6 @@ export const FONT_NUM: Record<string, PixelChar> = {
   '9': [[0,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[0,1,1,1,1],[0,0,0,0,1],[0,1,1,1,0],[0,0,0,0,0],[0,0,0,0,0]],
 }
 
-// Common symbols usable on Arduino-style LCD phrases
 export const FONT_SYMBOL: Record<string, PixelChar> = {
   '.': [[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,1,1,0,0],[0,1,1,0,0],[0,0,0,0,0]],
   ',': [[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,1,1,0,0],[0,1,0,0,0],[1,0,0,0,0]],
@@ -123,7 +117,7 @@ export const FONT_SYMBOL: Record<string, PixelChar> = {
 }
 
 const FONT_SYMBOL_BASELINE: Record<string, PixelChar> = {
-  '_': alignCharToBottom(FONT_SYMBOL._),
+  _: alignCharToBottom(FONT_SYMBOL._),
   '/': alignCharToBottom(FONT_SYMBOL['/']),
   '\\': alignCharToBottom(FONT_SYMBOL['\\']),
   '(': alignCharToBottom(FONT_SYMBOL['(']),
@@ -132,12 +126,11 @@ const FONT_SYMBOL_BASELINE: Record<string, PixelChar> = {
   '}': alignCharToBottom(FONT_SYMBOL['}']),
 }
 
-// Merge all
 export const FONT = {
   ...alignFontRecordToBottom(FONT_UPPER),
   ...alignFontRecordToBottom(FONT_LOWER),
   ...alignFontRecordToBottom(FONT_NUM),
   ...FONT_SYMBOL,
   ...FONT_SYMBOL_BASELINE,
-  ' ': EMPTY
+  ' ': EMPTY,
 }

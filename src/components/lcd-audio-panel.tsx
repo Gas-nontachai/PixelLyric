@@ -4,14 +4,7 @@ import { Clock3, Music2, Pause, Play, Scissors, Trash2, Upload } from 'lucide-re
 import { Waveform } from '@/components/audio-waveform'
 import { Button } from '@/components/ui/button'
 import { useWaveform } from '@/hooks/use-audio-waveform'
-import type { ProjectAudioTrack } from '@/lib/lcd'
-import type { ToastPosition, ToastVariant } from '@/hooks/use-toast'
-
-type AudioActionResult = {
-    ok: boolean
-    message?: string
-    wasClamped?: boolean
-}
+import type { AudioActionResult, ProjectAudioTrack, ToastPosition, ToastVariant } from '@/types'
 
 type AudioViewModel = {
     track: ProjectAudioTrack | null

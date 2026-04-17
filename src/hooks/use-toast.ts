@@ -1,22 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
 
-export type ToastPosition =
-  | 'top-left'
-  | 'top-center'
-  | 'top-right'
-  | 'bottom-left'
-  | 'bottom-center'
-  | 'bottom-right'
-
-export type ToastVariant = 'info' | 'success' | 'warning' | 'error'
-
-export type ToastItem = {
-  id: string
-  isLeaving: boolean
-  message: string
-  position: ToastPosition
-  variant: ToastVariant
-}
+import type { ToastItem, ToastPosition, ToastVariant } from '@/types'
 
 type ShowToastOptions = {
   position?: ToastPosition

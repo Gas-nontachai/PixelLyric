@@ -1,4 +1,4 @@
-import { type ToastItem, type ToastPosition } from '@/hooks/use-toast'
+import type { ToastItem, ToastPosition } from '@/types'
 
 type LcdToastRegionProps = {
   toasts: ToastItem[]
