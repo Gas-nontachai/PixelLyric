@@ -36,3 +36,9 @@ export type ProjectActionResult = {
   ok: boolean
   message?: string
 }
+
+export type ProjectTextExportPreview = {
+  content: string
+  fileName: string
+  mimeType: string
+}

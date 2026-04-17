@@ -3,6 +3,7 @@ import {
   getPresetById,
   normalizePageText,
   normalizeRowTexts,
+  textToDisplayRows,
 } from '@/lib/lcd'
 import type {
   CountdownOption,
@@ -21,6 +22,7 @@ const PROJECT_FILE_FORMAT = 'pixelyric-project'
 const PROJECT_FILE_EXTENSION = '.pixelyric'
 const PROJECT_FILE_MIME = 'application/vnd.pixelyric.project+json'
 const PROJECT_JSON_EXTENSION = '.json'
+const PROJECT_INO_EXTENSION = '.ino'
 const PROJECT_VERSION = 1
 const MIN_TRIM_GAP_MS = 100
 const COUNTDOWN_OPTIONS: CountdownOption[] = [0, 3, 5, 10]
@@ -341,6 +343,34 @@ export function serializeProjectDocument(document: PixelLyricProjectDocument) {
   return JSON.stringify(document, null, 2)
 }
 
+function trimTrailingWhitespace(value: string) {
+  return value.replace(/\s+$/g, '')
+}
+
+function getProjectExportRows(document: PixelLyricProjectDocument, page: PageScript) {
+  const preset = getPresetById(document.screenType)
+
+  if (page.mode === 'scroll') {
+    return normalizeRowTexts(page.rowTexts, preset.rows).map((rowText) =>
+      trimTrailingWhitespace(rowText.slice(0, preset.columns)),
+    )
+  }
+
+  const normalizedText = normalizePageText(page.text, preset.columns, preset.rows)
+
+  return textToDisplayRows(normalizedText, preset.columns, preset.rows).map(trimTrailingWhitespace)
+}
+
+export function serializeProjectInoContent(document: PixelLyricProjectDocument) {
+  return document.pages
+    .map((page, pageIndex) => {
+      const rows = getProjectExportRows(document, page)
+
+      return [`Page ${pageIndex + 1}`, ...rows].join('\n')
+    })
+    .join('\n\n')
+}
+
 export function downloadProjectDocument(document: PixelLyricProjectDocument, fileName?: string) {
   const content = serializeProjectDocument(document)
   const nextFileName = fileName ?? getProjectFileName(document.projectName)
@@ -351,6 +381,16 @@ export function downloadProjectJson(document: PixelLyricProjectDocument, fileNam
   const content = serializeProjectDocument(document)
   const nextFileName = fileName ?? getProjectFileName(document.projectName, PROJECT_JSON_EXTENSION)
   downloadTextFile(content, nextFileName, 'application/json')
+}
+
+export function downloadProjectIno(document: PixelLyricProjectDocument, fileName?: string) {
+  const content = serializeProjectInoContent(document)
+  const nextFileName = fileName ?? getProjectFileName(document.projectName, PROJECT_INO_EXTENSION)
+  downloadTextFile(content, nextFileName, 'text/plain;charset=utf-8')
+}
+
+export function downloadTextContentFile(content: string, fileName: string, mimeType = 'text/plain;charset=utf-8') {
+  downloadTextFile(content, fileName, mimeType)
 }
 
 function downloadTextFile(content: string, fileName: string, mimeType: string) {

@@ -44,6 +44,16 @@ export type PromptDialogOptions = BaseDialogOptions & {
 
 export type AlertDialogOptions = BaseDialogOptions
 
+export type ExportPreviewDialogOptions = BaseDialogOptions & {
+  closeLabel?: string
+  copyLabel?: string
+  downloadLabel?: string
+  fileName: string
+  onCopy: () => void | Promise<void>
+  onDownload: () => void | Promise<void>
+  preview: string
+}
+
 type BaseDialogItem = BaseDialogOptions & {
   id: string
 }
@@ -66,13 +76,33 @@ export type AlertDialogItem = BaseDialogItem & {
   kind: 'alert'
 }
 
-export type DialogItem = ConfirmDialogItem | PromptDialogItem | AlertDialogItem
+export type ExportPreviewDialogItem = BaseDialogItem & {
+  closeLabel: string
+  copyLabel: string
+  downloadLabel: string
+  fileName: string
+  kind: 'export-preview'
+  onCopy: () => void | Promise<void>
+  onDownload: () => void | Promise<void>
+  preview: string
+}
+
+export type DialogItem = ConfirmDialogItem | PromptDialogItem | AlertDialogItem | ExportPreviewDialogItem
 
 export type ViewportMode = 'mobile' | 'tablet' | 'desktop'
 
-export type IconDropdownMenuItem = {
+type IconDropdownMenuBaseItem = {
   id: string
   label: string
   icon?: ReactNode
+}
+
+export type IconDropdownMenuActionItem = IconDropdownMenuBaseItem & {
   onSelect: () => void | Promise<void>
 }
+
+export type IconDropdownMenuParentItem = IconDropdownMenuBaseItem & {
+  children: IconDropdownMenuActionItem[]
+}
+
+export type IconDropdownMenuItem = IconDropdownMenuActionItem | IconDropdownMenuParentItem

@@ -16,7 +16,6 @@ import {
 } from '@/lib/lcd'
 import {
   createProjectDocument as buildProjectDocument,
-  downloadProjectJson,
   downloadProjectDocument,
   getProjectFileName,
   normalizeProjectName,
@@ -24,6 +23,7 @@ import {
   parseProjectDocumentText,
   projectDocumentToState,
   serializeProjectDocument,
+  serializeProjectInoContent,
 } from '@/lib/project-file'
 import {
   isProjectFilePickerAbort,
@@ -42,6 +42,7 @@ import type {
   ProjectActionResult,
   ProjectAudioTrack,
   ProjectFileHandle,
+  ProjectTextExportPreview,
   ScreenPresetId,
 } from '@/types'
 
@@ -940,20 +941,23 @@ export function useLcdStudio() {
     }
   }, [createProjectSnapshot, projectName, saveProjectAs])
 
-  const exportProject = useCallback(async (): Promise<ProjectActionResult> => {
-    try {
-      const projectDocument = await createProjectSnapshot()
-      downloadProjectJson(projectDocument)
+  const createProjectJsonExportPreview = useCallback(async (): Promise<ProjectTextExportPreview> => {
+    const projectDocument = await createProjectSnapshot()
 
-      return {
-        ok: true,
-        message: 'Project exported as JSON',
-      }
-    } catch (error) {
-      return {
-        ok: false,
-        message: error instanceof Error ? error.message : 'Could not export the project',
-      }
+    return {
+      content: serializeProjectDocument(projectDocument),
+      fileName: getProjectFileName(projectDocument.projectName, '.json'),
+      mimeType: 'application/json',
+    }
+  }, [createProjectSnapshot])
+
+  const createProjectInoExportPreview = useCallback(async (): Promise<ProjectTextExportPreview> => {
+    const projectDocument = await createProjectSnapshot()
+
+    return {
+      content: serializeProjectInoContent(projectDocument),
+      fileName: getProjectFileName(projectDocument.projectName, '.ino'),
+      mimeType: 'text/plain;charset=utf-8',
     }
   }, [createProjectSnapshot])
 
@@ -1349,7 +1353,8 @@ export function useLcdStudio() {
       renameProject,
       saveProject,
       saveProjectAs,
-      exportProject,
+      createProjectJsonExportPreview,
+      createProjectInoExportPreview,
       importProjectFile,
     },
     playbackActions,

@@ -1,6 +1,6 @@
-import { Download, FolderOpen, Plus, Save } from 'lucide-react'
+import { Braces, Download, FileCode2, FolderOpen, Plus, Save } from 'lucide-react'
 
-import type { IconDropdownMenuItem } from '@/types'
+import type { IconDropdownMenuActionItem, IconDropdownMenuParentItem } from '@/types'
 
 export type ProjectMenuActionId =
   | 'new-project'
@@ -8,8 +8,15 @@ export type ProjectMenuActionId =
   | 'save-project'
   | 'save-project-as'
   | 'export-project'
+  | 'export-project-json'
+  | 'export-project-ino'
 
-export const PROJECT_MENU_ITEMS: Omit<IconDropdownMenuItem, 'onSelect'>[] = [
+type ProjectMenuConfigItem = Omit<IconDropdownMenuActionItem, 'onSelect'>
+  | (Omit<IconDropdownMenuParentItem, 'children'> & {
+      children: Array<Omit<IconDropdownMenuActionItem, 'onSelect'>>
+    })
+
+export const PROJECT_MENU_ITEMS: ProjectMenuConfigItem[] = [
   {
     id: 'new-project',
     label: 'New project',
@@ -32,7 +39,19 @@ export const PROJECT_MENU_ITEMS: Omit<IconDropdownMenuItem, 'onSelect'>[] = [
   },
   {
     id: 'export-project',
-    label: 'Export JSON',
+    label: 'Export',
     icon: <Download />,
+    children: [
+      {
+        id: 'export-project-json',
+        label: 'JSON',
+        icon: <Braces />,
+      },
+      {
+        id: 'export-project-ino',
+        label: 'INO',
+        icon: <FileCode2 />,
+      },
+    ],
   },
 ]

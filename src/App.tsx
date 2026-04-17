@@ -5,6 +5,7 @@ import { LcdDialogRegion } from '@/components/lcd-dialog-region'
 import { LcdPreviewStage } from '@/components/lcd-preview-stage'
 import { useDialog } from '@/hooks/use-dialog'
 import { useLcdStudio } from '@/hooks/use-lcd-studio'
+import { downloadTextContentFile } from '@/lib/project-file'
 import { useProjectPersistence } from '@/hooks/use-project-persistence'
 import { useResponsiveEditorDock } from '@/hooks/use-responsive-editor-dock'
 import { useToast } from '@/hooks/use-toast'
@@ -20,6 +21,7 @@ function App() {
     confirm,
     confirmActiveDialog,
     dismissActiveDialog,
+    exportPreview,
     prompt,
     submitPromptDialog,
   } = useDialog()
@@ -51,7 +53,8 @@ function App() {
     renameProject,
     saveProject,
     saveProjectAs,
-    exportProject,
+    createProjectJsonExportPreview,
+    createProjectInoExportPreview,
     importProjectFile,
   } = projectActions
 
@@ -65,13 +68,83 @@ function App() {
     .join(' ')
   const isPlaybackLocked = playback.isPlaying
 
-  const handleProjectExport = exportProject
   const handleProjectNew = newProject
   const handleProjectRename = renameProject
   const handleProjectSave = saveProject
   const handleProjectSaveAs = saveProjectAs
 
   const handleProjectImport = importProjectFile
+
+  const openExportPreviewDialog = useCallback(async (
+    exportType: 'JSON' | 'INO',
+    createPreview: typeof createProjectJsonExportPreview,
+  ) => {
+    try {
+      const exportPreviewData = await createPreview()
+
+      void exportPreview({
+        copyLabel: 'Copy code',
+        downloadLabel: 'Download',
+        fileName: exportPreviewData.fileName,
+        onCopy: async () => {
+          try {
+            if (!navigator.clipboard) {
+              throw new Error('Clipboard is not available in this browser')
+            }
+
+            await navigator.clipboard.writeText(exportPreviewData.content)
+            showToast(`${exportType} copied to clipboard`, {
+              position: 'top-right',
+              variant: 'success',
+            })
+          } catch (error) {
+            showToast(error instanceof Error ? error.message : `Could not copy the ${exportType} export`, {
+              position: 'top-right',
+              variant: 'error',
+            })
+          }
+        },
+        onDownload: async () => {
+          try {
+            downloadTextContentFile(
+              exportPreviewData.content,
+              exportPreviewData.fileName,
+              exportPreviewData.mimeType,
+            )
+            showToast(`${exportType} downloaded`, {
+              position: 'top-right',
+              variant: 'success',
+            })
+            dismissActiveDialog()
+          } catch (error) {
+            showToast(error instanceof Error ? error.message : `Could not download the ${exportType} export`, {
+              position: 'top-right',
+              variant: 'error',
+            })
+          }
+        },
+        preview: exportPreviewData.content,
+        title: exportPreviewData.fileName,
+      })
+
+      return {
+        ok: true,
+      }
+    } catch (error) {
+      return {
+        ok: false,
+        message: error instanceof Error ? error.message : `Could not prepare the ${exportType} export`,
+      }
+    }
+  }, [dismissActiveDialog, exportPreview, showToast])
+
+  const handleProjectExportJson = useCallback(async () => {
+    return openExportPreviewDialog('JSON', createProjectJsonExportPreview)
+  }, [createProjectJsonExportPreview, openExportPreviewDialog])
+
+  const handleProjectExportIno = useCallback(async () => {
+    return openExportPreviewDialog('INO', createProjectInoExportPreview)
+  }, [createProjectInoExportPreview, openExportPreviewDialog])
 
   const handleRestoreResult = useCallback(
     (result: { ok: boolean; message?: string }) => {
@@ -201,7 +274,8 @@ function App() {
           onProjectRename={handleProjectRename}
           onProjectSave={handleProjectSave}
           onProjectSaveAs={handleProjectSaveAs}
-          onProjectExport={handleProjectExport}
+          onProjectExportJson={handleProjectExportJson}
+          onProjectExportIno={handleProjectExportIno}
           onProjectImport={handleProjectImport}
           onPrev={playbackActions.prev}
           onRestart={playbackActions.restart}

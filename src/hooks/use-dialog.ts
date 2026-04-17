@@ -6,6 +6,8 @@ import type {
   ConfirmDialogItem,
   ConfirmDialogOptions,
   DialogItem,
+  ExportPreviewDialogItem,
+  ExportPreviewDialogOptions,
   PromptDialogItem,
   PromptDialogOptions,
 } from '@/types'
@@ -78,6 +80,27 @@ function createAlertDialog(options: AlertDialogOptions): AlertDialogItem {
     id: crypto.randomUUID(),
     intent: options.intent ?? 'default',
     kind: 'alert',
+    showCloseButton: options.showCloseButton ?? true,
+    title: options.title,
+  }
+}
+
+function createExportPreviewDialog(options: ExportPreviewDialogOptions): ExportPreviewDialogItem {
+  return {
+    allowBackdropDismiss: options.allowBackdropDismiss ?? true,
+    allowEscapeDismiss: options.allowEscapeDismiss ?? true,
+    closeLabel: options.closeLabel ?? 'Close',
+    confirmLabel: options.confirmLabel ?? 'Download',
+    copyLabel: options.copyLabel ?? 'Copy',
+    description: options.description,
+    downloadLabel: options.downloadLabel ?? 'Download',
+    fileName: options.fileName,
+    id: crypto.randomUUID(),
+    intent: options.intent ?? 'default',
+    kind: 'export-preview',
+    onCopy: options.onCopy,
+    onDownload: options.onDownload,
+    preview: options.preview,
     showCloseButton: options.showCloseButton ?? true,
     title: options.title,
   }
@@ -168,6 +191,10 @@ export function useDialog() {
     return enqueueDialog<void>(createAlertDialog(options))
   }, [enqueueDialog])
 
+  const exportPreview = useCallback((options: ExportPreviewDialogOptions) => {
+    return enqueueDialog<void>(createExportPreviewDialog(options))
+  }, [enqueueDialog])
+
   useEffect(() => {
     const pendingDialogs = pendingDialogsRef.current
 
@@ -190,6 +217,7 @@ export function useDialog() {
     confirm,
     confirmActiveDialog,
     dismissActiveDialog,
+    exportPreview,
     prompt,
     submitPromptDialog,
   }

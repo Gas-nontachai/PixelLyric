@@ -79,7 +79,8 @@ type LcdPreviewStageProps = {
   onProjectRename: (nextProjectName: string) => ProjectActionResult
   onProjectSave: () => Promise<ProjectActionResult>
   onProjectSaveAs: (nextProjectName?: string) => Promise<ProjectActionResult>
-  onProjectExport: () => Promise<ProjectActionResult>
+  onProjectExportJson: () => Promise<ProjectActionResult>
+  onProjectExportIno: () => Promise<ProjectActionResult>
   onProjectImport: (
     file: File | null,
     options?: { fileHandle?: ProjectFileHandle | null },
@@ -123,7 +124,8 @@ export function LcdPreviewStage({
   onProjectRename,
   onProjectSave,
   onProjectSaveAs,
-  onProjectExport,
+  onProjectExportJson,
+  onProjectExportIno,
   onProjectImport,
   onPrev,
   onRestart,
@@ -229,12 +231,12 @@ export function LcdPreviewStage({
     showProjectToast(result)
   }, [isDirty, onProjectConfirm, onProjectNew, showProjectToast])
 
-  const handleProjectSave = async () => {
+  const handleProjectSave = useCallback(async () => {
     const result = await onProjectSave()
     showProjectToast(result)
-  }
+  }, [onProjectSave, showProjectToast])
 
-  const handleProjectSaveAs = async () => {
+  const handleProjectSaveAs = useCallback(async () => {
     const nextProjectName = await onProjectPrompt({
       confirmLabel: 'Save project',
       defaultValue: projectName,
@@ -250,12 +252,17 @@ export function LcdPreviewStage({
 
     const result = await onProjectSaveAs(nextProjectName ?? undefined)
     showProjectToast(result)
-  }
+  }, [onProjectPrompt, onProjectSaveAs, projectName, showProjectToast])
 
-  const handleProjectExport = async () => {
-    const result = await onProjectExport()
+  const handleProjectExportJson = useCallback(async () => {
+    const result = await onProjectExportJson()
     showProjectToast(result)
-  }
+  }, [onProjectExportJson, showProjectToast])
+
+  const handleProjectExportIno = useCallback(async () => {
+    const result = await onProjectExportIno()
+    showProjectToast(result)
+  }, [onProjectExportIno, showProjectToast])
 
   const handleOpenProjectPicker = useCallback(async () => {
     if (isDirty && !await onProjectConfirm({
@@ -365,25 +372,51 @@ export function LcdPreviewStage({
     showProjectToast(result)
   }
 
-  const projectMenuItems = PROJECT_MENU_ITEMS.map((item) => ({
-    ...item,
-    onSelect: (() => {
-      switch (item.id) {
-        case 'new-project':
-          return handleProjectNew
-        case 'open-project':
-          return handleOpenProjectPicker
-        case 'save-project':
-          return handleProjectSave
-        case 'save-project-as':
-          return handleProjectSaveAs
-        case 'export-project':
-          return handleProjectExport
-        default:
-          return () => undefined
+  const getProjectMenuAction = useCallback((itemId: string) => {
+    switch (itemId) {
+      case 'new-project':
+        return handleProjectNew
+      case 'open-project':
+        return handleOpenProjectPicker
+      case 'save-project':
+        return handleProjectSave
+      case 'save-project-as':
+        return handleProjectSaveAs
+      case 'export-project':
+        return () => undefined
+      case 'export-project-json':
+        return handleProjectExportJson
+      case 'export-project-ino':
+        return handleProjectExportIno
+      default:
+        return () => undefined
+    }
+  }, [
+    handleOpenProjectPicker,
+    handleProjectExportIno,
+    handleProjectExportJson,
+    handleProjectNew,
+    handleProjectSave,
+    handleProjectSaveAs,
+  ])
+
+  const projectMenuItems = PROJECT_MENU_ITEMS.map((item) => {
+    if ('children' in item) {
+      return {
+        ...item,
+        onSelect: getProjectMenuAction(item.id),
+        children: item.children.map((childItem) => ({
+          ...childItem,
+          onSelect: getProjectMenuAction(childItem.id),
+        })),
       }
-    })(),
-  }))
+    }
+
+    return {
+      ...item,
+      onSelect: getProjectMenuAction(item.id),
+    }
+  })
 
   return (
     <section className="lcd-preview-panel">
