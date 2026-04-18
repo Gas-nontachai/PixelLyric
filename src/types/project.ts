@@ -10,6 +10,7 @@ export type SerializedProjectAudioTrack = {
   durationMs: number
   trimStartMs: number
   trimEndMs: number
+  volumePercent: number
   dataBase64: string
 }
 

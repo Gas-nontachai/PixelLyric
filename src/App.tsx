@@ -265,6 +265,7 @@ function App() {
           onAudioPreviewTogglePlay={audioActions.togglePreviewPlayback}
           onAudioTrimEndChange={audioActions.setTrimEndMs}
           onAudioTrimStartChange={audioActions.setTrimStartMs}
+          onAudioVolumeChange={audioActions.setVolumePercent}
           onNext={playbackActions.next}
           onPause={playbackActions.pause}
           onPlay={playbackActions.play}

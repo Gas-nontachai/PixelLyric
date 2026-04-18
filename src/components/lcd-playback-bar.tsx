@@ -1,5 +1,5 @@
-import { memo } from 'react'
-import { Hourglass, Music2, Pause, Play, RotateCcw, SkipBack, SkipForward } from 'lucide-react'
+import { memo, useState } from 'react'
+import { Hourglass, Music2, Pause, Play, RotateCcw, SkipBack, SkipForward, Volume2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 
@@ -11,6 +11,7 @@ type LcdPlaybackBarProps = {
   isLooping: boolean
   isPlaybackLocked: boolean
   isPlaying: boolean
+  volumePercent: number
   onCountdownCycle: () => void
   onNext: () => void
   onPause: () => void
@@ -19,6 +20,7 @@ type LcdPlaybackBarProps = {
   onRestart: () => void
   onToggleAudioPanel: () => void
   onToggleLoop: () => void
+  onVolumeChange: (value: number) => void
 }
 
 function LcdPlaybackBarComponent({
@@ -29,6 +31,7 @@ function LcdPlaybackBarComponent({
   isLooping,
   isPlaybackLocked,
   isPlaying,
+  volumePercent,
   onCountdownCycle,
   onNext,
   onPause,
@@ -37,9 +40,19 @@ function LcdPlaybackBarComponent({
   onRestart,
   onToggleAudioPanel,
   onToggleLoop,
+  onVolumeChange,
 }: LcdPlaybackBarProps) {
   const isActive = isPlaying || countdownRemaining !== null
   const countdownLabel = countdownSeconds === 0 ? 'Off' : `${countdownSeconds}s`
+  const [isVolumeOpen, setIsVolumeOpen] = useState(false)
+  const [isVolumeDragging, setIsVolumeDragging] = useState(false)
+  const [volumeDraft, setVolumeDraft] = useState(volumePercent)
+  const displayedVolume = isVolumeDragging ? volumeDraft : volumePercent
+
+  const handleVolumeInput = (nextValue: number) => {
+    setVolumeDraft(nextValue)
+    onVolumeChange(nextValue)
+  }
 
   return (
     <div className="lcd-playback-bar">
@@ -67,7 +80,6 @@ function LcdPlaybackBarComponent({
         onClick={onToggleAudioPanel}
         aria-label={isAudioPanelOpen ? 'Hide MP3 dialog' : 'Show MP3 dialog'}
         aria-pressed={isAudioPanelOpen}
-        disabled={isPlaybackLocked}
       >
         <Music2 />
       </Button>
@@ -90,7 +102,55 @@ function LcdPlaybackBarComponent({
         <Hourglass />
         {countdownLabel}
       </Button>
-      
+
+      {hasAudio ? (
+        <div className={`lcd-playback-volume-toggle${isVolumeOpen ? ' lcd-playback-volume-toggle-open' : ''}`}>
+          <Button
+            size="icon"
+            variant={isVolumeOpen ? 'secondary' : 'outline'}
+            className="lcd-playback-volume-button"
+            onClick={() => setIsVolumeOpen((currentValue) => !currentValue)}
+            aria-label={isVolumeOpen ? 'Hide volume slider' : 'Show volume slider'}
+            aria-expanded={isVolumeOpen}
+          >
+            <Volume2 />
+          </Button>
+
+          <div
+            className={`lcd-playback-volume-slider-shell${isVolumeOpen ? ' lcd-playback-volume-slider-shell-open' : ''}`}
+            aria-hidden={!isVolumeOpen}
+          >
+            <div className="lcd-playback-volume-slider-track">
+              <div
+                className="lcd-playback-volume-slider-fill"
+                style={{ transform: `scaleX(${displayedVolume / 100})` }}
+              />
+              <input
+                className="lcd-playback-volume-slider"
+                type="range"
+                min={0}
+                max={100}
+                step={1}
+                value={displayedVolume}
+                onChange={(event) => handleVolumeInput(Number(event.target.value))}
+                onInput={(event) => handleVolumeInput(Number((event.target as HTMLInputElement).value))}
+                onMouseDown={() => {
+                  setVolumeDraft(volumePercent)
+                  setIsVolumeDragging(true)
+                }}
+                onMouseUp={() => setIsVolumeDragging(false)}
+                onTouchStart={() => {
+                  setVolumeDraft(volumePercent)
+                  setIsVolumeDragging(true)
+                }}
+                onTouchEnd={() => setIsVolumeDragging(false)}
+                onBlur={() => setIsVolumeDragging(false)}
+                aria-label="Audio volume"
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -103,6 +163,7 @@ export const LcdPlaybackBar = memo(LcdPlaybackBarComponent, (previousProps, next
     previousProps.isAudioPanelOpen === nextProps.isAudioPanelOpen &&
     previousProps.isLooping === nextProps.isLooping &&
     previousProps.isPlaybackLocked === nextProps.isPlaybackLocked &&
-    previousProps.isPlaying === nextProps.isPlaying
+    previousProps.isPlaying === nextProps.isPlaying &&
+    previousProps.volumePercent === nextProps.volumePercent
   )
 })

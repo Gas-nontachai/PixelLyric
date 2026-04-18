@@ -2,45 +2,55 @@ import { useEffect, useState } from 'react'
 
 export function useWaveform(file: File | null, bars = 120) {
     const [data, setData] = useState<number[]>([])
+    const [isLoading, setIsLoading] = useState(false)
 
     useEffect(() => {
-        if (!file) return
+        if (!file) {
+            return
+        }
 
         let isCancelled = false
         const audioCtx = new AudioContext()
 
         const process = async () => {
-            const arrayBuffer = await file.arrayBuffer()
-            const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer)
+            setData([])
+            setIsLoading(true)
 
-            const raw = audioBuffer.getChannelData(0)
-            const blockSize = Math.max(1, Math.floor(raw.length / bars))
-            const waveform: number[] = []
+            try {
+                const arrayBuffer = await file.arrayBuffer()
+                const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer)
 
-            for (let i = 0; i < bars; i++) {
-                const start = i * blockSize
-                let sum = 0
+                const raw = audioBuffer.getChannelData(0)
+                const blockSize = Math.max(1, Math.floor(raw.length / bars))
+                const waveform: number[] = []
 
-                for (let j = 0; j < blockSize; j++) {
-                    sum += Math.abs(raw[start + j] || 0)
+                for (let index = 0; index < bars; index += 1) {
+                    const start = index * blockSize
+                    let sum = 0
+
+                    for (let sampleIndex = 0; sampleIndex < blockSize; sampleIndex += 1) {
+                        sum += Math.abs(raw[start + sampleIndex] || 0)
+                    }
+
+                    waveform.push(sum / blockSize)
                 }
 
-                waveform.push(sum / blockSize)
-            }
+                const max = Math.max(...waveform)
+                const normalized = max > 0 ? waveform.map((value) => value / max) : waveform.map(() => 0)
 
-            const max = Math.max(...waveform)
-            const normalized = max > 0 ? waveform.map((v) => v / max) : waveform.map(() => 0)
-
-            if (!isCancelled) {
-                setData(normalized)
+                if (!isCancelled) {
+                    setData(normalized)
+                    setIsLoading(false)
+                }
+            } catch {
+                if (!isCancelled) {
+                    setData([])
+                    setIsLoading(false)
+                }
             }
         }
 
-        void process().catch(() => {
-            if (!isCancelled) {
-                setData([])
-            }
-        })
+        void process()
 
         return () => {
             isCancelled = true
@@ -48,5 +58,15 @@ export function useWaveform(file: File | null, bars = 120) {
         }
     }, [file, bars])
 
-    return data
+    if (!file) {
+        return {
+            data: [],
+            isLoading: false,
+        }
+    }
+
+    return {
+        data,
+        isLoading,
+    }
 }
