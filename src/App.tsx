@@ -13,7 +13,7 @@ import { useViewportMode } from '@/hooks/use-viewport-mode'
 import { LcdToastRegion } from '@/components/lcd-toast-region'
 
 function App() {
-  const { viewportMode, isMobile } = useViewportMode()
+  const { viewportMode } = useViewportMode()
   const { isEditorOpen, toggleEditor } = useResponsiveEditorDock(viewportMode)
   const { showToast, toasts } = useToast()
   const {
@@ -60,8 +60,8 @@ function App() {
 
   const appClassName = [
     'lcd-workspace',
+    `lcd-workspace-${viewportMode}`,
     isEditorOpen ? 'lcd-workspace-editor-open' : 'lcd-workspace-editor-closed',
-    isMobile ? 'lcd-workspace-mobile' : '',
     isOverlayEditor ? 'lcd-workspace-editor-overlay' : '',
   ]
     .filter(Boolean)

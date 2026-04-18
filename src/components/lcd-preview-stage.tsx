@@ -514,16 +514,12 @@ export function LcdPreviewStage({
           <LcdDisplay columns={columns} rows={rows} displayRows={displayRows} />
         </div>
 
-        <div className="flex justify-center">
+        <div className="lcd-preview-audio-meta" aria-live="polite">
           {audio.track ? (
-            <>
-              <span className="lcd-audio-tab-title">
-                Now Playing:
-                <span className="lcd-audio-tab-value">
-                  {audio.track.name}
-                </span>
-              </span>
-            </>
+            <p className="lcd-preview-audio-now-playing">
+              <span className="lcd-audio-tab-title">Now Playing:</span>
+              <span className="lcd-audio-tab-value">{audio.track.name}</span>
+            </p>
           ) : null}
         </div>
 
