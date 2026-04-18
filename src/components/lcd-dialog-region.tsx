@@ -6,6 +6,10 @@ import { Dialog } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import type { DialogItem, ExportPreviewDialogItem, PromptDialogItem } from '@/types'
 
+function getPromptDialogFormId(dialogId: string) {
+    return `lcd-message-dialog-form-${dialogId}`
+}
+
 type LcdDialogRegionProps = {
     activeDialog: DialogItem | null
     onConfirm: () => void
@@ -21,6 +25,13 @@ type PromptDialogFormProps = {
 type ExportPreviewDialogBodyProps = {
     dialog: ExportPreviewDialogItem
     intentClassName: string
+}
+
+type DialogFooterProps = {
+    activeDialog: DialogItem
+    intentClassName: string
+    onConfirm: () => void
+    onDismiss: () => void
 }
 
 function PromptDialogForm({ dialog, onPromptSubmit }: PromptDialogFormProps) {
@@ -50,7 +61,7 @@ function PromptDialogForm({ dialog, onPromptSubmit }: PromptDialogFormProps) {
     }
 
     return (
-        <form id="lcd-message-dialog-form" className="lcd-message-dialog-form" onSubmit={handlePromptSubmit}>
+        <form id={getPromptDialogFormId(dialog.id)} className="lcd-message-dialog-form" onSubmit={handlePromptSubmit}>
             <p className="lcd-message-dialog-copy">{dialog.description}</p>
             <label className="lcd-field lcd-message-dialog-field">
                 {dialog.inputLabel ? <span>{dialog.inputLabel}</span> : null}
@@ -95,7 +106,57 @@ function ExportPreviewDialogBody({ dialog, intentClassName }: ExportPreviewDialo
     )
 }
 
-export function LcdDialogRegion({ activeDialog, onDismiss, onPromptSubmit }: LcdDialogRegionProps) {
+function DialogFooter({ activeDialog, intentClassName, onConfirm, onDismiss }: DialogFooterProps) {
+    if (activeDialog.kind === 'export-preview') {
+        return (
+            <div className="lcd-message-dialog-actions">
+                <Button variant="outline" onClick={onDismiss}>
+                    {activeDialog.closeLabel}
+                </Button>
+            </div>
+        )
+    }
+
+    if (activeDialog.kind === 'alert') {
+        return (
+            <div className="lcd-message-dialog-actions">
+                <Button className={cn('lcd-message-dialog-confirm', intentClassName)} onClick={onConfirm}>
+                    {activeDialog.confirmLabel}
+                </Button>
+            </div>
+        )
+    }
+
+    if (activeDialog.kind === 'prompt') {
+        return (
+            <div className="lcd-message-dialog-actions">
+                <Button variant="outline" onClick={onDismiss}>
+                    {activeDialog.cancelLabel}
+                </Button>
+                <Button
+                    type="submit"
+                    form={getPromptDialogFormId(activeDialog.id)}
+                    className={cn('lcd-message-dialog-confirm', intentClassName)}
+                >
+                    {activeDialog.confirmLabel}
+                </Button>
+            </div>
+        )
+    }
+
+    return (
+        <div className="lcd-message-dialog-actions">
+            <Button variant="outline" onClick={onDismiss}>
+                {activeDialog.cancelLabel}
+            </Button>
+            <Button className={cn('lcd-message-dialog-confirm', intentClassName)} onClick={onConfirm}>
+                {activeDialog.confirmLabel}
+            </Button>
+        </div>
+    )
+}
+
+export function LcdDialogRegion({ activeDialog, onConfirm, onDismiss, onPromptSubmit }: LcdDialogRegionProps) {
     if (!activeDialog) {
         return null
     }
@@ -114,11 +175,18 @@ export function LcdDialogRegion({ activeDialog, onDismiss, onPromptSubmit }: Lcd
             closeOnBackdrop={activeDialog.allowBackdropDismiss}
             closeOnEscape={activeDialog.allowEscapeDismiss}
             description={activeDialog.kind === 'prompt' || isExportPreviewDialog ? undefined : activeDialog.description}
-
             onOpenChange={handleOpenChange}
             open
             showCloseButton={activeDialog.showCloseButton}
             cardClassName={isExportPreviewDialog ? 'lcd-dialog-card-export-preview' : 'lcd-dialog-card-compact'}
+            footer={(
+                <DialogFooter
+                    activeDialog={activeDialog}
+                    intentClassName={intentClassName}
+                    onConfirm={onConfirm}
+                    onDismiss={onDismiss}
+                />
+            )}
             title={activeDialog.title}
         >
             <div className={cn('lcd-message-dialog', intentClassName)}>
