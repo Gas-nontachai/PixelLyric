@@ -1,5 +1,5 @@
 import { type ChangeEvent, type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react'
-import { FileCog, Pencil } from 'lucide-react'
+import { FileCog, LoaderCircle, Pencil } from 'lucide-react'
 
 import { LcdAudioPanel } from '@/components/lcd-audio-panel'
 import { LcdDisplay } from '@/components/lcd-display'
@@ -15,27 +15,14 @@ import {
 } from '@/lib/project-file-system'
 import type {
   AudioActionResult,
+  AudioViewModel,
   ConfirmDialogOptions,
   PromptDialogOptions,
   ProjectActionResult,
-  ProjectAudioTrack,
   ProjectFileHandle,
   ToastPosition,
   ToastVariant,
 } from '@/types'
-
-type PreviewAudioState = {
-  track: ProjectAudioTrack | null
-  scriptDurationMs: number
-  trimmedAudioDurationMs: number
-  currentPageAudioStartMs: number | null
-  currentPageAudioInRange: boolean
-  hasCoverageGap: boolean
-  overflowMs: number
-  previewPositionMs: number
-  previewIsPlaying: boolean
-  volumePercent: number
-}
 
 function isEditableEventTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) {
@@ -53,7 +40,7 @@ function isEditableEventTarget(target: EventTarget | null) {
 }
 
 type LcdPreviewStageProps = {
-  audio: PreviewAudioState
+  audio: AudioViewModel
   columns: number
   countdownRemaining: number | null
   countdownSeconds: 0 | 3 | 5 | 10
@@ -138,6 +125,7 @@ export function LcdPreviewStage({
   onCountdownCycle,
 }: LcdPreviewStageProps) {
   const [isAudioPanelOpen, setIsAudioPanelOpen] = useState(false)
+  const [isProjectActionPending, setIsProjectActionPending] = useState(false)
   const [isRenamingProjectName, setIsRenamingProjectName] = useState(false)
   const [projectNameDraft, setProjectNameDraft] = useState(projectName)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -163,6 +151,20 @@ export function LcdPreviewStage({
       variant: result.ok ? 'success' : 'error',
     })
   }, [onShowToast])
+
+  const runProjectAction = useCallback(async (action: () => Promise<void>) => {
+    if (isPlaybackLocked || isProjectActionPending) {
+      return
+    }
+
+    setIsProjectActionPending(true)
+
+    try {
+      await action()
+    } finally {
+      setIsProjectActionPending(false)
+    }
+  }, [isPlaybackLocked, isProjectActionPending])
 
   const handleAudioFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
     if (isPlaybackLocked) {
@@ -205,112 +207,126 @@ export function LcdPreviewStage({
   }
 
   const handleProjectFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
-    if (isPlaybackLocked) {
+    if (isPlaybackLocked || isProjectActionPending) {
       event.target.value = ''
       return
     }
 
     const [file] = Array.from(event.target.files ?? [])
-    const result = await onProjectImport(file ?? null)
-
-    showProjectToast(result)
+    await runProjectAction(async () => {
+      const result = await onProjectImport(file ?? null)
+      showProjectToast(result)
+    })
 
     event.target.value = ''
   }
 
   const handleProjectNew = useCallback(async () => {
-    const shouldProceed = !isDirty || await onProjectConfirm({
-      confirmLabel: 'Discard changes',
-      description: 'Your current project has unsaved changes. Starting a new project will remove them.',
-      intent: 'warning',
-      title: 'Create a new project?',
-    })
+    await runProjectAction(async () => {
+      const shouldProceed = !isDirty || await onProjectConfirm({
+        confirmLabel: 'Discard changes',
+        description: 'Your current project has unsaved changes. Starting a new project will remove them.',
+        intent: 'warning',
+        title: 'Create a new project?',
+      })
 
-    if (!shouldProceed) {
-      return
-    }
-
-    const result = await onProjectNew()
-    showProjectToast(result)
-  }, [isDirty, onProjectConfirm, onProjectNew, showProjectToast])
-
-  const handleProjectSave = useCallback(async () => {
-    const result = await onProjectSave()
-    showProjectToast(result)
-  }, [onProjectSave, showProjectToast])
-
-  const handleProjectSaveAs = useCallback(async () => {
-    const nextProjectName = await onProjectPrompt({
-      confirmLabel: 'Save project',
-      defaultValue: projectName,
-      description: 'Choose a file name for the exported PixelLyric project.',
-      inputLabel: 'Project name',
-      inputPlaceholder: 'Untitled',
-      title: 'Save project as',
-    })
-
-    if (nextProjectName === null) {
-      return
-    }
-
-    const result = await onProjectSaveAs(nextProjectName ?? undefined)
-    showProjectToast(result)
-  }, [onProjectPrompt, onProjectSaveAs, projectName, showProjectToast])
-
-  const handleProjectExportJson = useCallback(async () => {
-    const result = await onProjectExportJson()
-    showProjectToast(result)
-  }, [onProjectExportJson, showProjectToast])
-
-  const handleProjectExportIno = useCallback(async () => {
-    const result = await onProjectExportIno()
-    showProjectToast(result)
-  }, [onProjectExportIno, showProjectToast])
-
-  const handleOpenProjectPicker = useCallback(async () => {
-    if (isDirty && !await onProjectConfirm({
-      confirmLabel: 'Discard changes',
-      description: 'Opening another project will replace the current unsaved project in the studio.',
-      intent: 'warning',
-      title: 'Open another project?',
-    })) {
-      return
-    }
-
-    if (supportsProjectFileSystemAccess()) {
-      try {
-        const pickedProject = await openProjectFileWithPicker()
-
-        if (!pickedProject) {
-          return
-        }
-
-        const result = await onProjectImport(pickedProject.file, {
-          fileHandle: pickedProject.fileHandle,
-        })
-
-        showProjectToast(result)
-        return
-      } catch (error) {
-        if (isProjectFilePickerAbort(error)) {
-          return
-        }
-
-        showProjectToast({
-          ok: false,
-          message: error instanceof Error ? error.message : 'Could not open the project',
-        })
+      if (!shouldProceed) {
         return
       }
-    }
 
-    projectFileInputRef.current?.click()
-  }, [isDirty, onProjectConfirm, onProjectImport, showProjectToast])
+      const result = await onProjectNew()
+      showProjectToast(result)
+    })
+  }, [isDirty, onProjectConfirm, onProjectNew, runProjectAction, showProjectToast])
+
+  const handleProjectSave = useCallback(async () => {
+    await runProjectAction(async () => {
+      const result = await onProjectSave()
+      showProjectToast(result)
+    })
+  }, [onProjectSave, runProjectAction, showProjectToast])
+
+  const handleProjectSaveAs = useCallback(async () => {
+    await runProjectAction(async () => {
+      const nextProjectName = await onProjectPrompt({
+        confirmLabel: 'Save project',
+        defaultValue: projectName,
+        description: 'Choose a file name for the exported PixelLyric project.',
+        inputLabel: 'Project name',
+        inputPlaceholder: 'Untitled',
+        title: 'Save project as',
+      })
+
+      if (nextProjectName === null) {
+        return
+      }
+
+      const result = await onProjectSaveAs(nextProjectName ?? undefined)
+      showProjectToast(result)
+    })
+  }, [onProjectPrompt, onProjectSaveAs, projectName, runProjectAction, showProjectToast])
+
+  const handleProjectExportJson = useCallback(async () => {
+    await runProjectAction(async () => {
+      const result = await onProjectExportJson()
+      showProjectToast(result)
+    })
+  }, [onProjectExportJson, runProjectAction, showProjectToast])
+
+  const handleProjectExportIno = useCallback(async () => {
+    await runProjectAction(async () => {
+      const result = await onProjectExportIno()
+      showProjectToast(result)
+    })
+  }, [onProjectExportIno, runProjectAction, showProjectToast])
+
+  const handleOpenProjectPicker = useCallback(async () => {
+    await runProjectAction(async () => {
+      if (isDirty && !await onProjectConfirm({
+        confirmLabel: 'Discard changes',
+        description: 'Opening another project will replace the current unsaved project in the studio.',
+        intent: 'warning',
+        title: 'Open another project?',
+      })) {
+        return
+      }
+
+      if (supportsProjectFileSystemAccess()) {
+        try {
+          const pickedProject = await openProjectFileWithPicker()
+
+          if (!pickedProject) {
+            return
+          }
+
+          const result = await onProjectImport(pickedProject.file, {
+            fileHandle: pickedProject.fileHandle,
+          })
+
+          showProjectToast(result)
+          return
+        } catch (error) {
+          if (isProjectFilePickerAbort(error)) {
+            return
+          }
+
+          showProjectToast({
+            ok: false,
+            message: error instanceof Error ? error.message : 'Could not open the project',
+          })
+          return
+        }
+      }
+
+      projectFileInputRef.current?.click()
+    })
+  }, [isDirty, onProjectConfirm, onProjectImport, runProjectAction, showProjectToast])
 
   useEffect(() => {
     const handleKeyDown = (event: globalThis.KeyboardEvent) => {
       if (
         isPlaybackLocked ||
+        isProjectActionPending ||
         event.repeat ||
         event.isComposing ||
         !(event.metaKey || event.ctrlKey) ||
@@ -342,10 +358,10 @@ export function LcdPreviewStage({
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [handleOpenProjectPicker, handleProjectNew, isPlaybackLocked])
+  }, [handleOpenProjectPicker, handleProjectNew, isPlaybackLocked, isProjectActionPending])
 
   const handleStartProjectRename = () => {
-    if (isPlaybackLocked) {
+    if (isPlaybackLocked || isProjectActionPending) {
       return
     }
 
@@ -472,10 +488,11 @@ export function LcdPreviewStage({
           <div className="lcd-preview-header-actions">
             <IconDropdownMenu
               ariaLabel="Project actions"
-              disabled={isPlaybackLocked}
+              disabled={isPlaybackLocked || isProjectActionPending}
               items={projectMenuItems}
               menuLabel="Project actions"
-              triggerIcon={<FileCog />}
+              tooltipLabel={isProjectActionPending ? 'Project action in progress' : undefined}
+              triggerIcon={isProjectActionPending ? <LoaderCircle className="animate-spin" /> : <FileCog />}
             />
             <Button
               size="icon"

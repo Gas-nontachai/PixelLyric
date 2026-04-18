@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from 'react'
+import { memo, useState } from 'react'
 import { Hourglass, Music2, Pause, Play, RotateCcw, SkipBack, SkipForward, Volume2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -47,18 +47,7 @@ function LcdPlaybackBarComponent({
   const [isVolumeOpen, setIsVolumeOpen] = useState(false)
   const [isVolumeDragging, setIsVolumeDragging] = useState(false)
   const [volumeDraft, setVolumeDraft] = useState(volumePercent)
-
-  useEffect(() => {
-    if (!hasAudio && isVolumeOpen) {
-      setIsVolumeOpen(false)
-    }
-  }, [hasAudio, isVolumeOpen])
-
-  useEffect(() => {
-    if (!isVolumeDragging) {
-      setVolumeDraft(volumePercent)
-    }
-  }, [isVolumeDragging, volumePercent])
+  const displayedVolume = isVolumeDragging ? volumeDraft : volumePercent
 
   const handleVolumeInput = (nextValue: number) => {
     setVolumeDraft(nextValue)
@@ -134,7 +123,7 @@ function LcdPlaybackBarComponent({
             <div className="lcd-playback-volume-slider-track">
               <div
                 className="lcd-playback-volume-slider-fill"
-                style={{ transform: `scaleX(${volumeDraft / 100})` }}
+                style={{ transform: `scaleX(${displayedVolume / 100})` }}
               />
               <input
                 className="lcd-playback-volume-slider"
@@ -142,12 +131,18 @@ function LcdPlaybackBarComponent({
                 min={0}
                 max={100}
                 step={1}
-                value={volumeDraft}
+                value={displayedVolume}
                 onChange={(event) => handleVolumeInput(Number(event.target.value))}
                 onInput={(event) => handleVolumeInput(Number((event.target as HTMLInputElement).value))}
-                onMouseDown={() => setIsVolumeDragging(true)}
+                onMouseDown={() => {
+                  setVolumeDraft(volumePercent)
+                  setIsVolumeDragging(true)
+                }}
                 onMouseUp={() => setIsVolumeDragging(false)}
-                onTouchStart={() => setIsVolumeDragging(true)}
+                onTouchStart={() => {
+                  setVolumeDraft(volumePercent)
+                  setIsVolumeDragging(true)
+                }}
                 onTouchEnd={() => setIsVolumeDragging(false)}
                 onBlur={() => setIsVolumeDragging(false)}
                 aria-label="Audio volume"

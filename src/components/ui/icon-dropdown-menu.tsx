@@ -23,8 +23,10 @@ export function IconDropdownMenu({
 }: IconDropdownMenuProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [activeParentId, setActiveParentId] = useState<string | null>(null)
+  const [isSelecting, setIsSelecting] = useState(false)
   const menuRef = useRef<HTMLDivElement | null>(null)
-  const isMenuOpen = !disabled && isOpen
+  const isBusy = disabled || isSelecting
+  const isMenuOpen = !isBusy && isOpen
 
   const closeMenu = () => {
     setActiveParentId(null)
@@ -34,6 +36,12 @@ export function IconDropdownMenu({
   const isParentItem = (item: IconDropdownMenuItem): item is IconDropdownMenuParentItem => {
     return Array.isArray((item as Partial<IconDropdownMenuParentItem>).children)
   }
+
+  useEffect(() => {
+    if (isBusy) {
+      closeMenu()
+    }
+  }, [isBusy])
 
   useEffect(() => {
     if (!isMenuOpen) {
@@ -63,7 +71,13 @@ export function IconDropdownMenu({
 
   const handleItemSelect = async (item: IconDropdownMenuActionItem) => {
     closeMenu()
-    await item.onSelect()
+
+    try {
+      setIsSelecting(true)
+      await item.onSelect()
+    } finally {
+      setIsSelecting(false)
+    }
   }
 
   const handleParentToggle = (itemId: string) => {
@@ -71,7 +85,7 @@ export function IconDropdownMenu({
   }
 
   return (
-    <div className="lcd-icon-dropdown" ref={menuRef}>
+    <div className="lcd-icon-dropdown" ref={menuRef} aria-busy={isSelecting}>
       <Button
         size="icon"
         variant="outline"
@@ -84,7 +98,7 @@ export function IconDropdownMenu({
         aria-expanded={isMenuOpen}
         aria-haspopup="menu"
         title={tooltipLabel}
-        disabled={disabled}
+        disabled={isBusy}
       >
         {triggerIcon}
         <ChevronDown className="lcd-icon-dropdown-trigger-chevron" />
@@ -116,6 +130,7 @@ export function IconDropdownMenu({
                   aria-haspopup="menu"
                   aria-expanded={activeParentId === item.id}
                   onClick={() => handleParentToggle(item.id)}
+                  disabled={isBusy}
                 >
                   <span className="lcd-icon-dropdown-item-label">
                     {item.icon}
@@ -131,6 +146,7 @@ export function IconDropdownMenu({
                   onClick={() => {
                     void handleItemSelect(item)
                   }}
+                  disabled={isBusy}
                 >
                   {item.icon}
                   <span>{item.label}</span>
@@ -148,6 +164,7 @@ export function IconDropdownMenu({
                       onClick={() => {
                         void handleItemSelect(childItem)
                       }}
+                      disabled={isBusy}
                     >
                       {childItem.icon}
                       <span>{childItem.label}</span>
