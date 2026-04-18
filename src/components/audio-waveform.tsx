@@ -5,6 +5,7 @@ type WaveformProps = {
     selectionStartPercent: number
     selectionEndPercent: number
     currentPercent: number
+    isLoading?: boolean
     onSeek?: (percent: number) => void
 }
 
@@ -13,6 +14,7 @@ export function Waveform({
     selectionStartPercent,
     selectionEndPercent,
     currentPercent,
+    isLoading = false,
     onSeek,
 }: WaveformProps) {
     const handleClick = (event: MouseEvent<HTMLDivElement>) => {
@@ -29,6 +31,12 @@ export function Waveform({
 
     return (
         <div className="waveform-wrapper" onClick={handleClick}>
+            {isLoading ? (
+                <div className="waveform-loading-state" aria-hidden="true">
+                    <span className="waveform-loading-spinner" />
+                </div>
+            ) : null}
+
             <div className="waveform">
                 {data.map((v, i) => (
                     <div

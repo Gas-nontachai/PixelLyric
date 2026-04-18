@@ -1,5 +1,5 @@
 import { type ChangeEvent, useRef } from 'react'
-import { Clock3, Music2, Pause, Play, Scissors, Trash2, Upload } from 'lucide-react'
+import { Pause, Play, Scissors, Trash2, Upload } from 'lucide-react'
 
 import { Waveform } from '@/components/audio-waveform'
 import { Button } from '@/components/ui/button'
@@ -90,7 +90,7 @@ export function LcdAudioPanel({
   onShowToast,
 }: LcdAudioPanelProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
-  const waveformData = useWaveform(audio.track?.sourceFile ?? null)
+  const { data: waveformData, isLoading: isWaveformLoading } = useWaveform(audio.track?.sourceFile ?? null)
   const selectionStartPercent = audio.track
     ? getPercent(audio.track.trimStartMs, audio.track.durationMs)
     : 0
@@ -206,41 +206,18 @@ export function LcdAudioPanel({
             disabled={isPlaybackLocked}
           >
             <Upload />
-            Import MP3
           </Button>
           <Button size="sm" variant="outline" onClick={onClear} disabled={isPlaybackLocked || !audio.track}>
             <Trash2 />
-            Clear
           </Button>
           <Button size="sm" onClick={onPreviewTogglePlay} disabled={isPlaybackLocked || !audio.track}>
             {audio.previewIsPlaying ? <Pause /> : <Play />}
-            {audio.previewIsPlaying ? 'Pause preview' : 'Play selection'}
           </Button>
         </div>
       </div>
 
       {audio.track ? (
         <>
-          <div className="lcd-audio-summary-grid">
-            <div className="lcd-audio-summary-card">
-              <span>
-                <Music2 />
-                Track
-              </span>
-              <strong>{audio.track.name}</strong>
-              <small>Total {formatTimelineLabel(audio.track.durationMs)}</small>
-            </div>
-            <div className="lcd-audio-summary-card">
-              <span>
-                <Clock3 />
-                Active cut
-              </span>
-              <strong>{formatTimelineLabel(audio.trimmedAudioDurationMs)}</strong>
-              <small>
-                {formatTimelineLabel(audio.track.trimStartMs)} to {formatTimelineLabel(audio.track.trimEndMs)}
-              </small>
-            </div>
-          </div>
           <div className="lcd-audio-trim-grid">
             <label className="lcd-field">
               <span>Trim start (m:ss)</span>
@@ -288,6 +265,7 @@ export function LcdAudioPanel({
                 selectionStartPercent={selectionStartPercent}
                 selectionEndPercent={selectionEndPercent}
                 currentPercent={previewPercent}
+                isLoading={isWaveformLoading}
                 onSeek={(percent) => {
                   if (!audio.track || isPlaybackLocked) {
                     return
@@ -333,11 +311,9 @@ export function LcdAudioPanel({
 
             <div className="lcd-audio-range-footer">
               <span>
-                <Scissors />
                 Start {formatTimelineLabel(audio.track.trimStartMs)}
               </span>
               <span>
-                <Music2 />
                 End {formatTimelineLabel(audio.track.trimEndMs)}
               </span>
             </div>

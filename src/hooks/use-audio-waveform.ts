@@ -2,12 +2,19 @@ import { useEffect, useState } from 'react'
 
 export function useWaveform(file: File | null, bars = 120) {
     const [data, setData] = useState<number[]>([])
+    const [isLoading, setIsLoading] = useState(false)
 
     useEffect(() => {
-        if (!file) return
+        if (!file) {
+            setData([])
+            setIsLoading(false)
+            return
+        }
 
         let isCancelled = false
         const audioCtx = new AudioContext()
+        setData([])
+        setIsLoading(true)
 
         const process = async () => {
             const arrayBuffer = await file.arrayBuffer()
@@ -33,12 +40,14 @@ export function useWaveform(file: File | null, bars = 120) {
 
             if (!isCancelled) {
                 setData(normalized)
+                setIsLoading(false)
             }
         }
 
         void process().catch(() => {
             if (!isCancelled) {
                 setData([])
+                setIsLoading(false)
             }
         })
 
@@ -48,5 +57,8 @@ export function useWaveform(file: File | null, bars = 120) {
         }
     }, [file, bars])
 
-    return data
+    return {
+        data,
+        isLoading,
+    }
 }

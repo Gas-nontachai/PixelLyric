@@ -535,7 +535,7 @@ export function LcdPreviewStage({
         <Dialog
           open={isAudioPanelOpen}
           onOpenChange={setIsAudioPanelOpen}
-          title="Audio tools"
+          title={audio.track ? `${audio.track.name}` : 'Audio tools'}
         >
           <LcdAudioPanel
             audio={audio}
