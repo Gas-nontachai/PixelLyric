@@ -399,6 +399,121 @@
   box-shadow: 0 0 0 6px rgba(119, 193, 255, 0.18);
 }
 
+.lcd-playback-volume-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lcd-playback-volume-button {
+  position: relative;
+  z-index: 1;
+  width: 42px;
+  height: 42px;
+  background: linear-gradient(180deg, rgba(216, 232, 151, 0.94), rgba(198, 222, 126, 0.92));
+  color: #173425;
+  box-shadow: none;
+}
+
+.lcd-playback-volume-button:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.lcd-playback-volume-slider-shell {
+  width: 0;
+  opacity: 0;
+  overflow: hidden;
+  transform: translateX(-18px) scaleX(0.92);
+  transform-origin: left center;
+  pointer-events: none;
+  transition:
+    width 220ms ease,
+    opacity 180ms ease,
+    transform 220ms ease;
+}
+
+.lcd-playback-volume-slider-shell-open {
+  width: 196px;
+  opacity: 1;
+  transform: translateX(0) scaleX(1);
+  pointer-events: auto;
+}
+
+.lcd-playback-volume-slider-track {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 42px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.lcd-playback-volume-slider-track::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 5px;
+  margin: 0 14px;
+  border-radius: 999px;
+  background: rgba(153, 173, 132, 0.42);
+}
+
+.lcd-playback-volume-slider-fill {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  height: 5px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #9bc93c, #5e9d18);
+  pointer-events: none;
+  transform-origin: left center;
+}
+
+.lcd-playback-volume-slider {
+  position: relative;
+  width: 100%;
+  appearance: none;
+  background: transparent;
+  margin: 0;
+  cursor: pointer;
+}
+
+.lcd-playback-volume-slider::-webkit-slider-runnable-track {
+  height: 24px;
+  background: transparent;
+}
+
+.lcd-playback-volume-slider::-moz-range-track {
+  height: 24px;
+  border: 0;
+  background: transparent;
+}
+
+.lcd-playback-volume-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  margin-top: 0;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #9bc93c, #5e9d18);
+  box-shadow: 0 6px 14px rgba(94, 157, 24, 0.24);
+}
+
+.lcd-playback-volume-slider::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #9bc93c, #5e9d18);
+  box-shadow: 0 6px 14px rgba(94, 157, 24, 0.24);
+}
+
 .lcd-audio-tab {
   display: grid;
   gap: 4px;
@@ -718,6 +833,39 @@
   gap: 12px;
 }
 
+.lcd-audio-panel-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  padding: 6px;
+  border-radius: 999px;
+  background: rgba(232, 239, 225, 0.9);
+  border: 1px solid rgba(17, 34, 23, 0.08);
+}
+
+.lcd-audio-panel-tab {
+  border: 0;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease, box-shadow 140ms ease;
+}
+
+.lcd-audio-panel-tab:hover {
+  color: var(--foreground);
+}
+
+.lcd-audio-panel-tab-active {
+  background: #ffffff;
+  color: var(--foreground);
+  box-shadow: 0 8px 18px rgba(17, 34, 23, 0.1);
+}
+
 .lcd-audio-summary-card {
   display: grid;
   gap: 4px;
@@ -918,6 +1066,145 @@
   color: #704507;
   background: rgba(255, 247, 220, 0.92);
   border-color: rgba(155, 94, 0, 0.2);
+}
+
+.lcd-volume-panel {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(249, 252, 244, 0.96), rgba(241, 247, 234, 0.96));
+  border: 1px solid rgba(17, 34, 23, 0.08);
+}
+
+.lcd-volume-header,
+.lcd-volume-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.lcd-volume-header span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--muted-foreground);
+}
+
+.lcd-volume-header strong {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.lcd-volume-control {
+  position: relative;
+  display: grid;
+  gap: 14px;
+  padding: 18px 18px 16px;
+  border-radius: 22px;
+  background: rgba(10, 20, 10, 0.95);
+  color: #eff9da;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.lcd-volume-control-locked {
+  opacity: 0.72;
+}
+
+.lcd-volume-visual {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.lcd-volume-icon {
+  width: 28px;
+  height: 28px;
+  color: #dff6a8;
+}
+
+.lcd-volume-step-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+
+.lcd-volume-step {
+  display: grid;
+  place-items: end center;
+  min-height: 70px;
+  border: 1px solid rgba(223, 246, 168, 0.1);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(39, 62, 36, 0.72), rgba(16, 29, 16, 0.92));
+  color: rgba(223, 246, 168, 0.48);
+  font-size: 2rem;
+  line-height: 1;
+  padding: 10px 0 8px;
+  cursor: pointer;
+  transition: transform 140ms ease, border-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
+}
+
+.lcd-volume-step:hover {
+  transform: translateY(-1px);
+  border-color: rgba(223, 246, 168, 0.28);
+  color: rgba(223, 246, 168, 0.84);
+}
+
+.lcd-volume-step-active {
+  border-color: rgba(211, 247, 138, 0.42);
+  color: #dbf78f;
+  box-shadow: inset 0 -14px 24px rgba(138, 211, 72, 0.12), 0 10px 22px rgba(0, 0, 0, 0.18);
+}
+
+.lcd-volume-range-input {
+  width: 100%;
+  margin: 0;
+  appearance: none;
+  background: transparent;
+}
+
+.lcd-volume-range-input::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(99, 123, 84, 0.48), rgba(199, 245, 118, 0.92));
+}
+
+.lcd-volume-range-input::-moz-range-track {
+  height: 8px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(99, 123, 84, 0.48), rgba(199, 245, 118, 0.92));
+}
+
+.lcd-volume-range-input::-webkit-slider-thumb {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  margin-top: -5px;
+  border: 1px solid rgba(13, 19, 9, 0.24);
+  border-radius: 999px;
+  background: #f8ffee;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
+}
+
+.lcd-volume-range-input::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: 1px solid rgba(13, 19, 9, 0.24);
+  border-radius: 999px;
+  background: #f8ffee;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
+}
+
+.lcd-volume-footer {
+  color: var(--muted-foreground);
+  font-size: 0.88rem;
+  font-weight: 600;
 }
 
 .lcd-countdown-picker {

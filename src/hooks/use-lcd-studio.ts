@@ -57,6 +57,7 @@ const COUNTDOWN_OPTIONS: CountdownOption[] = [0, 3, 5, 10]
 const MIN_TRIM_GAP_MS = 100
 const AUDIO_DRIFT_TOLERANCE_S = 0.45
 const AUDIO_CORRECTION_COOLDOWN_MS = 1200
+const DEFAULT_AUDIO_VOLUME_PERCENT = 100
 
 let untitledProjectCounter = 1
 
@@ -90,6 +91,10 @@ function clampTrimEndMs(value: number, track: ProjectAudioTrack) {
 
 function clampPreviewPositionMs(value: number, track: ProjectAudioTrack) {
   return Math.min(Math.max(value, track.trimStartMs), track.trimEndMs)
+}
+
+function clampVolumePercent(value: number) {
+  return Math.min(100, Math.max(0, Math.round(value)))
 }
 
 function moveIndex(index: number, direction: 'up' | 'down', length: number) {
@@ -180,6 +185,7 @@ export function useLcdStudio() {
     if (!audioElementRef.current) {
       const audioElement = new Audio()
       audioElement.preload = 'auto'
+      audioElement.volume = DEFAULT_AUDIO_VOLUME_PERCENT / 100
       audioElementRef.current = audioElement
     }
 
@@ -224,8 +230,10 @@ export function useLcdStudio() {
 
       if (nextTrack) {
         audioElement.src = nextTrack.objectUrl
+        audioElement.volume = clampVolumePercent(nextTrack.volumePercent) / 100
       } else {
         audioElement.removeAttribute('src')
+        audioElement.volume = DEFAULT_AUDIO_VOLUME_PERCENT / 100
       }
 
       audioElement.load()
@@ -748,6 +756,7 @@ export function useLcdStudio() {
         durationMs,
         trimStartMs: 0,
         trimEndMs: durationMs,
+        volumePercent: DEFAULT_AUDIO_VOLUME_PERCENT,
       }, 0)
 
       syncAudioToTimeline({
@@ -1117,6 +1126,44 @@ export function useLcdStudio() {
     }
   }
 
+  const handleVolumePercentChange = (nextVolumePercent: number): AudioActionResult => {
+    const track = audioTrackRef.current
+
+    if (!track) {
+      return {
+        ok: false,
+        message: 'Import an MP3 before adjusting volume',
+      }
+    }
+
+    const clampedVolumePercent = clampVolumePercent(nextVolumePercent)
+
+    audioTrackRef.current = {
+      ...track,
+      volumePercent: clampedVolumePercent,
+    }
+
+    setAudioTrack((currentTrack) =>
+      currentTrack
+        ? {
+            ...currentTrack,
+            volumePercent: clampedVolumePercent,
+          }
+        : currentTrack,
+    )
+
+    const audioElement = ensureAudioElement()
+    audioElement.volume = clampedVolumePercent / 100
+    setIsDirty(true)
+
+    return {
+      ok: true,
+      wasClamped: clampedVolumePercent !== Math.round(nextVolumePercent),
+    }
+  }
+
+  const resetAudioVolume = (): AudioActionResult => handleVolumePercentChange(DEFAULT_AUDIO_VOLUME_PERCENT)
+
   const toggleAudioPreviewPlayback = () => {
     const track = audioTrackRef.current
 
@@ -1292,6 +1339,7 @@ export function useLcdStudio() {
           durationMs: audioTrack.durationMs,
           trimStartMs: audioTrack.trimStartMs,
           trimEndMs: audioTrack.trimEndMs,
+          volumePercent: audioTrack.volumePercent,
           fileSize: audioTrack.sourceFile.size,
           lastModified: audioTrack.sourceFile.lastModified,
         }
@@ -1322,6 +1370,7 @@ export function useLcdStudio() {
         ? clampPreviewPositionMs(audioPreview.positionMs || audioTrack.trimStartMs, audioTrack)
         : 0,
       previewIsPlaying: audioPreview.isPlaying,
+      volumePercent: audioTrack?.volumePercent ?? DEFAULT_AUDIO_VOLUME_PERCENT,
     },
     displayRows: activePage ? getVisibleRows(activePage, preset, currentProgressMs) : [],
     editorActions: {
@@ -1343,6 +1392,8 @@ export function useLcdStudio() {
       clear: handleClearAudio,
       setTrimStartMs: handleTrimStartChange,
       setTrimEndMs: handleTrimEndChange,
+      setVolumePercent: handleVolumePercentChange,
+      resetVolume: resetAudioVolume,
       togglePreviewPlayback: toggleAudioPreviewPlayback,
       seekPreview: seekAudioPreview,
     },

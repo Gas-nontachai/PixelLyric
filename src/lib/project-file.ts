@@ -27,6 +27,7 @@ const PROJECT_VERSION = 1
 const MIN_TRIM_GAP_MS = 100
 const COUNTDOWN_OPTIONS: CountdownOption[] = [0, 3, 5, 10]
 const FALLBACK_PROJECT_NAME = 'Untitled'
+const DEFAULT_AUDIO_VOLUME_PERCENT = 100
 
 const serializedAudioCache = new WeakMap<File, Promise<SerializedProjectAudioTrack>>()
 
@@ -184,6 +185,7 @@ async function serializeAudioTrack(track: ProjectAudioTrack): Promise<Serialized
       durationMs: track.durationMs,
       trimStartMs: track.trimStartMs,
       trimEndMs: track.trimEndMs,
+      volumePercent: track.volumePercent,
       name: track.name,
     }
   }
@@ -202,6 +204,7 @@ async function serializeAudioTrack(track: ProjectAudioTrack): Promise<Serialized
       durationMs: track.durationMs,
       trimStartMs: track.trimStartMs,
       trimEndMs: track.trimEndMs,
+      volumePercent: track.volumePercent,
       dataBase64,
     }
   })
@@ -266,6 +269,10 @@ function normalizeProjectDocument(value: unknown): PixelLyricProjectDocument {
       durationMs,
       trimStartMs: trimRange.trimStartMs,
       trimEndMs: trimRange.trimEndMs,
+      volumePercent:
+        typeof embeddedTrack.volumePercent === 'number' && Number.isFinite(embeddedTrack.volumePercent)
+          ? Math.min(100, Math.max(0, Math.round(embeddedTrack.volumePercent)))
+          : DEFAULT_AUDIO_VOLUME_PERCENT,
       dataBase64: embeddedTrack.dataBase64,
     }
   }
@@ -315,6 +322,7 @@ export async function projectDocumentToState(
       durationMs: normalizedDocument.audioTrack.durationMs,
       trimStartMs: normalizedDocument.audioTrack.trimStartMs,
       trimEndMs: normalizedDocument.audioTrack.trimEndMs,
+      volumePercent: normalizedDocument.audioTrack.volumePercent,
     }
   }
 

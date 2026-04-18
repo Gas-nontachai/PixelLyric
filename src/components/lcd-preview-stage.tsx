@@ -34,6 +34,7 @@ type PreviewAudioState = {
   overflowMs: number
   previewPositionMs: number
   previewIsPlaying: boolean
+  volumePercent: number
 }
 
 function isEditableEventTarget(target: EventTarget | null) {
@@ -70,6 +71,7 @@ type LcdPreviewStageProps = {
   onAudioPreviewTogglePlay: () => void
   onAudioTrimEndChange: (value: number) => AudioActionResult
   onAudioTrimStartChange: (value: number) => AudioActionResult
+  onAudioVolumeChange: (value: number) => AudioActionResult
   onNext: () => void
   onPause: () => void
   onPlay: () => void
@@ -115,6 +117,7 @@ export function LcdPreviewStage({
   onAudioPreviewTogglePlay,
   onAudioTrimEndChange,
   onAudioTrimStartChange,
+  onAudioVolumeChange,
   onNext,
   onPause,
   onPlay,
@@ -515,6 +518,7 @@ export function LcdPreviewStage({
           isLooping={isLooping}
           isPlaybackLocked={isPlaybackLocked}
           isPlaying={isPlaying}
+          volumePercent={audio.volumePercent}
           onNext={onNext}
           onPause={onPause}
           onPlay={onPlay}
@@ -523,12 +527,15 @@ export function LcdPreviewStage({
           onToggleAudioPanel={handleToggleAudioDialog}
           onToggleLoop={onToggleLoop}
           onCountdownCycle={onCountdownCycle}
+          onVolumeChange={(value) => {
+            onAudioVolumeChange(value)
+          }}
         />
 
         <Dialog
           open={isAudioPanelOpen}
           onOpenChange={setIsAudioPanelOpen}
-          title="MP3 timeline"
+          title="Audio tools"
         >
           <LcdAudioPanel
             audio={audio}

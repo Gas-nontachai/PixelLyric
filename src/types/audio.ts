@@ -5,6 +5,7 @@ export type ProjectAudioTrack = {
   durationMs: number
   trimStartMs: number
   trimEndMs: number
+  volumePercent: number
 }
 
 export type AudioPreviewState = {
@@ -28,4 +29,5 @@ export type AudioViewModel = {
   overflowMs: number
   previewPositionMs: number
   previewIsPlaying: boolean
+  volumePercent: number
 }
