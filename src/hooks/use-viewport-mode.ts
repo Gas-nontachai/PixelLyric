@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ViewportMode } from '@/types'
 
 export function getViewportMode(width: number): ViewportMode {
-  if (width >= 1100) {
+  if (width >= 1228) {
     return 'desktop'
   }
 

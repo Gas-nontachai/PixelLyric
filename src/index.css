@@ -94,8 +94,9 @@
 }
 
 .lcd-app-shell {
-  min-height: 100vh;
+  min-height: 100dvh;
   padding: 24px;
+  overflow-x: clip;
   background:
     radial-gradient(circle at top right, rgba(142, 180, 46, 0.18), transparent 28%),
     radial-gradient(circle at bottom left, rgba(2, 133, 31, 0.16), transparent 28%),
@@ -116,7 +117,8 @@
 }
 
 .lcd-preview-shell {
-  min-height: calc(100vh - 48px);
+  min-height: calc(100dvh - 48px);
+  min-width: 0;
   padding: 28px;
   border-radius: 30px;
   border: 1px solid rgba(17, 34, 23, 0.08);
@@ -132,16 +134,20 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  flex-wrap: wrap;
 }
 
 .lcd-preview-header-actions {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .lcd-preview-title-block {
   display: grid;
+  flex: 1 1 360px;
   gap: 10px;
   min-width: 0;
 }
@@ -378,9 +384,26 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
   background:
     radial-gradient(circle at center, rgba(142, 180, 46, 0.1), transparent 40%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.56), rgba(241, 246, 233, 0.84));
+}
+
+.lcd-preview-audio-meta {
+  display: flex;
+  justify-content: center;
+  min-height: 24px;
+}
+
+.lcd-preview-audio-now-playing {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  text-align: center;
 }
 
 .lcd-playback-bar {
@@ -1258,6 +1281,7 @@
 
 .lcd-editor-dock {
   min-width: 0;
+  align-self: start;
 }
 
 .lcd-editor-backdrop {
@@ -1753,7 +1777,7 @@
   background: var(--lcd-pixel-off);
 }
 
-@media (min-width: 1100px) {
+@media (min-width: 1228px) {
   .lcd-workspace {
     grid-template-columns: minmax(0, 1fr) 360px;
   }
@@ -1782,179 +1806,14 @@
     opacity: 1;
     transform: translateX(0);
   }
-}
-
-@media (min-width: 768px) and (max-width: 1099px) {
-  .lcd-app-shell {
-    padding: 20px;
-  }
-
-  .lcd-workspace {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 20px;
-  }
-
-  .lcd-editor-dock {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    bottom: 20px;
-    width: min(304px, calc(100vw - 40px));
-    max-width: calc(100vw - 40px);
-    overflow: auto;
-    z-index: 60;
-    transition:
-      opacity 180ms ease,
-      transform 180ms ease;
-  }
-
-  .lcd-workspace-editor-closed .lcd-editor-dock {
-    opacity: 0;
-    pointer-events: none;
-    transform: translateX(calc(100% + 20px));
-  }
-
-  .lcd-workspace-editor-open .lcd-editor-dock {
-    opacity: 1;
-    transform: translateX(0);
-  }
-
-  .lcd-preview-shell,
-  .lcd-editor {
-    padding: 20px;
-    border-radius: 24px;
-  }
-
-  .lcd-preview-shell {
-    min-height: calc(100vh - 40px);
-    gap: 20px;
-  }
-
-  .lcd-preview-header {
-    gap: 12px;
-  }
-
-  .lcd-preview-header-actions {
-    gap: 10px;
-  }
-
-  .lcd-project-name-text {
-    font-size: clamp(1.8rem, 4vw, 2.5rem);
-  }
-
-  .lcd-preview-header h1 {
-    font-size: clamp(2rem, 5vw, 2.6rem);
-  }
-
-  .lcd-preview-board-wrap {
-    min-height: 460px;
-    padding: 18px;
-    border-radius: 26px;
-  }
-
-  .lcd-playback-bar {
-    gap: 10px;
-  }
-
-  .lcd-board {
-    --lcd-row-gap: 3px;
-    --lcd-lines-gap: 14px;
-    --lcd-cell-width: 24px;
-    --lcd-cell-height: 38px;
-    --lcd-screen-grid-column: 24px;
-    padding: 38px 42px;
-    border-radius: 28px;
-  }
-
-  .lcd-board-pads {
-    left: 64px;
-    right: 64px;
-  }
-
-  .lcd-board-pad {
-    width: 104px;
-  }
-
-  .lcd-screw {
-    width: 32px;
-    height: 32px;
-  }
-
-  .lcd-screw-top-left,
-  .lcd-screw-top-right {
-    top: 14px;
-  }
-
-  .lcd-screw-top-left,
-  .lcd-screw-bottom-left {
-    left: 14px;
-  }
-
-  .lcd-screw-top-right,
-  .lcd-screw-bottom-right {
-    right: 14px;
-  }
-
-  .lcd-screw-bottom-left,
-  .lcd-screw-bottom-right {
-    bottom: 14px;
-  }
-
-  .lcd-bezel {
-    padding: 16px 16px 18px;
-  }
-
-  .lcd-bezel::before,
-  .lcd-bezel::after {
-    top: 56px;
-    bottom: 56px;
-    width: 16px;
-  }
-
-  .lcd-bezel::before {
-    left: -14px;
-  }
-
-  .lcd-bezel::after {
-    right: -14px;
-  }
-
-  .lcd-screen-frame {
-    padding: 14px 16px;
-  }
-
-  .lcd-screen-glare {
-    inset: 8px 16px auto;
-  }
-
-  .lcd-screen {
-    padding: 18px 14px;
-  }
 
   .lcd-editor {
-    min-height: 100%;
-    gap: 16px;
-  }
-
-  .lcd-editor-topbar {
-    gap: 10px;
-  }
-
-  .lcd-editor-actions {
-    gap: 8px;
-  }
-
-  .lcd-duration-row {
-    grid-template-columns: minmax(0, 1fr) 96px;
-  }
-
-  .lcd-audio-summary-grid,
-  .lcd-audio-trim-grid {
-    grid-template-columns: 1fr;
+    position: sticky;
+    top: 24px;
   }
 }
 
-@media (max-width: 767px) {
+@media (max-width: 1227px) {
   .lcd-app-shell {
     padding: 16px;
   }
@@ -1972,7 +1831,7 @@
   }
 
   .lcd-preview-shell {
-    min-height: auto;
+    min-height: calc(100dvh - 32px);
   }
 
   .lcd-preview-board-wrap {
@@ -2063,9 +1922,9 @@
     align-items: flex-start;
   }
 
-  .lcd-preview-header-actions {
-    width: 100%;
-    justify-content: flex-end;
+  .lcd-preview-audio-now-playing {
+    justify-content: flex-start;
+    text-align: left;
   }
 
   .lcd-project-name-text {
@@ -2159,7 +2018,7 @@
 
 }
 
-@media (min-width: 768px) {
+@media (min-width: 1228px) {
   .lcd-editor-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
