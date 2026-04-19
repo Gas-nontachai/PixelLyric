@@ -176,8 +176,8 @@ describe('serializeProjectInoContent', () => {
       projectName: 'Sketch "A" \\ Demo',
     }))
 
-    expect(content).toContain('// Project: Sketch \\"A\\" \\\\ Demo')
-    expect(content).toContain('{ "Say \\"Hi\\"", "Path \\\\ Demo" }')
+    expect(content).toContain('// Project: Sketch \\\"A\\\" \\\\ Demo')
+    expect(content).toContain('{ "Say \\\"Hi\\\"", "Path \\\\ Demo" }')
     expect(content).toContain('const unsigned long pageDurations[PAGE_COUNT]')
   })
 })
