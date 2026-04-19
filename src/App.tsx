@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 
 import { LcdControlPanel } from '@/components/lcd-control-panel'
 import { LcdDialogRegion } from '@/components/lcd-dialog-region'
@@ -18,6 +18,7 @@ function App() {
   const { showToast, toasts } = useToast()
   const {
     activeDialog,
+    alert,
     confirm,
     confirmActiveDialog,
     dismissActiveDialog,
@@ -44,6 +45,7 @@ function App() {
     playbackActions,
   } =
     useLcdStudio()
+  const hasShownBrowserSaveAlertRef = useRef(false)
 
   const isOverlayEditor = viewportMode !== 'desktop'
   const {
@@ -70,8 +72,33 @@ function App() {
 
   const handleProjectNew = newProject
   const handleProjectRename = renameProject
-  const handleProjectSave = saveProject
-  const handleProjectSaveAs = saveProjectAs
+  const showBrowserSaveAlert = useCallback(async () => {
+    if (hasShownBrowserSaveAlertRef.current) {
+      return
+    }
+
+    hasShownBrowserSaveAlertRef.current = true
+
+    await alert({
+      allowBackdropDismiss: false,
+      allowEscapeDismiss: true,
+      confirmLabel: 'Continue',
+      description: 'Your browser will ask for permission to choose or update the project file before PixelLyric can save it.',
+      intent: 'warning',
+      showCloseButton: false,
+      title: 'Browser permission required',
+    })
+  }, [alert])
+
+  const handleProjectSave = useCallback(async () => {
+    await showBrowserSaveAlert()
+    return saveProject()
+  }, [saveProject, showBrowserSaveAlert])
+
+  const handleProjectSaveAs = useCallback(async (nextProjectName?: string) => {
+    await showBrowserSaveAlert()
+    return saveProjectAs(nextProjectName)
+  }, [saveProjectAs, showBrowserSaveAlert])
 
   const handleProjectImport = importProjectFile
 
@@ -186,7 +213,9 @@ function App() {
       return
     }
 
-    const result = saveAs ? await saveProjectAs(nextProjectName ?? undefined) : await saveProject()
+    const result = saveAs
+      ? await handleProjectSaveAs(nextProjectName ?? undefined)
+      : await handleProjectSave()
 
     if (result.message) {
       showToast(result.message, {
@@ -194,7 +223,7 @@ function App() {
         variant: result.ok ? 'success' : 'error',
       })
     }
-  }, [projectName, prompt, saveProject, saveProjectAs, showToast])
+  }, [handleProjectSave, handleProjectSaveAs, projectName, prompt, showToast])
 
   useProjectPersistence({
     autosaveKey: projectAutosaveKey,

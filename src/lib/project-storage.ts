@@ -2,8 +2,16 @@ import type { PixelLyricProjectDocument } from '@/types'
 
 const PROJECT_DB_NAME = 'pixelyric-projects'
 const PROJECT_STORE_NAME = 'projects'
+const WAVEFORM_STORE_NAME = 'waveforms'
 const PROJECT_AUTOSAVE_KEY = 'autosave'
-const PROJECT_DB_VERSION = 1
+const PROJECT_DB_VERSION = 2
+
+type WaveformCacheRecord = {
+  key: string
+  bars: number
+  data: number[]
+  updatedAt: string
+}
 
 function openProjectDatabase() {
   return new Promise<IDBDatabase>((resolve, reject) => {
@@ -14,6 +22,10 @@ function openProjectDatabase() {
 
       if (!database.objectStoreNames.contains(PROJECT_STORE_NAME)) {
         database.createObjectStore(PROJECT_STORE_NAME)
+      }
+
+      if (!database.objectStoreNames.contains(WAVEFORM_STORE_NAME)) {
+        database.createObjectStore(WAVEFORM_STORE_NAME)
       }
     }
 
@@ -28,14 +40,15 @@ function openProjectDatabase() {
 }
 
 function withObjectStore<T>(
+  storeName: string,
   mode: IDBTransactionMode,
   operation: (store: IDBObjectStore) => IDBRequest<T>,
 ) {
   return openProjectDatabase().then(
     (database) =>
       new Promise<T>((resolve, reject) => {
-        const transaction = database.transaction(PROJECT_STORE_NAME, mode)
-        const store = transaction.objectStore(PROJECT_STORE_NAME)
+        const transaction = database.transaction(storeName, mode)
+        const store = transaction.objectStore(storeName)
         const request = operation(store)
 
         request.onsuccess = () => {
@@ -62,13 +75,40 @@ function withObjectStore<T>(
 }
 
 export function loadAutosavedProject() {
-  return withObjectStore<PixelLyricProjectDocument | undefined>('readonly', (store) =>
+  return withObjectStore<PixelLyricProjectDocument | undefined>(PROJECT_STORE_NAME, 'readonly', (store) =>
     store.get(PROJECT_AUTOSAVE_KEY),
   ).then((value) => value ?? null)
 }
 
 export function saveAutosavedProject(document: PixelLyricProjectDocument) {
-  return withObjectStore<IDBValidKey>('readwrite', (store) =>
+  return withObjectStore<IDBValidKey>(PROJECT_STORE_NAME, 'readwrite', (store) =>
     store.put(document, PROJECT_AUTOSAVE_KEY),
+  ).then(() => undefined)
+}
+
+function getWaveformStorageKey(key: string, bars: number) {
+  return `${key}::${bars}`
+}
+
+export function getWaveformCacheKey(file: File) {
+  return [file.name, file.size, file.lastModified, file.type || 'unknown'].join(':')
+}
+
+export function getCachedWaveform(key: string, bars: number) {
+  return withObjectStore<WaveformCacheRecord | undefined>(WAVEFORM_STORE_NAME, 'readonly', (store) =>
+    store.get(getWaveformStorageKey(key, bars)),
+  ).then((value) => value?.data ?? null)
+}
+
+export function saveCachedWaveform(key: string, bars: number, data: number[]) {
+  const record: WaveformCacheRecord = {
+    key,
+    bars,
+    data,
+    updatedAt: new Date().toISOString(),
+  }
+
+  return withObjectStore<IDBValidKey>(WAVEFORM_STORE_NAME, 'readwrite', (store) =>
+    store.put(record, getWaveformStorageKey(key, bars)),
   ).then(() => undefined)
 }
