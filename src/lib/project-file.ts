@@ -5,6 +5,7 @@ import {
   normalizeRowTexts,
   textToDisplayRows,
 } from '@/lib/lcd'
+import { isAudioDurationWithinLimit } from '@/lib/audio'
 import type {
   CountdownOption,
   DurationUnit,
@@ -174,6 +175,16 @@ function base64ToUint8Array(value: string) {
   return bytes
 }
 
+function normalizeEmbeddedAudioDurationMs(durationMs: number) {
+  const normalizedDurationMs = Math.max(MIN_TRIM_GAP_MS, Math.round(durationMs))
+
+  if (!isAudioDurationWithinLimit(normalizedDurationMs)) {
+    throw new Error('Embedded MP3 must be 5:00 or shorter')
+  }
+
+  return normalizedDurationMs
+}
+
 async function serializeAudioTrack(track: ProjectAudioTrack): Promise<SerializedProjectAudioTrack> {
   const cachedTrack = serializedAudioCache.get(track.sourceFile)
 
@@ -259,7 +270,7 @@ function normalizeProjectDocument(value: unknown): PixelLyricProjectDocument {
       throw new Error('The embedded audio payload is incomplete')
     }
 
-    const durationMs = Math.max(MIN_TRIM_GAP_MS, Math.round(embeddedTrack.durationMs))
+    const durationMs = normalizeEmbeddedAudioDurationMs(embeddedTrack.durationMs)
     const trimRange = clampTrimRange(durationMs, embeddedTrack.trimStartMs, embeddedTrack.trimEndMs)
 
     audioTrack = {

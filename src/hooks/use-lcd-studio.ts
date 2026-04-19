@@ -1,6 +1,7 @@
 import { startTransition, type ChangeEvent, useCallback, useEffect, useRef, useState } from 'react'
 
 import { DEFAULT_DURATION_MS, SCREEN_PRESETS } from '@/configs/lcd'
+import { isAudioDurationWithinLimit } from '@/lib/audio'
 import {
   createBlankPage,
   createInitialPage,
@@ -741,7 +742,23 @@ export function useLcdStudio() {
         probeAudio.src = nextObjectUrl
       })
 
-      if (!Number.isFinite(durationMs) || durationMs <= MIN_TRIM_GAP_MS) {
+      if (!Number.isFinite(durationMs)) {
+        URL.revokeObjectURL(nextObjectUrl)
+        return {
+          ok: false,
+          message: 'Import failed. Try another MP3 file.',
+        }
+      }
+
+      if (!isAudioDurationWithinLimit(durationMs)) {
+        URL.revokeObjectURL(nextObjectUrl)
+        return {
+          ok: false,
+          message: 'MP3 must be 5:00 or shorter',
+        }
+      }
+
+      if (durationMs <= MIN_TRIM_GAP_MS) {
         URL.revokeObjectURL(nextObjectUrl)
         return {
           ok: false,

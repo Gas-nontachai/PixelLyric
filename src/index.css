@@ -601,7 +601,7 @@
 }
 
 .lcd-dialog-card-compact {
-  width: min(720px, 100%);
+  width: min(50vw, 720px);
 }
 
 .lcd-dialog-card-export-preview {
@@ -782,6 +782,10 @@
 }
 
 @media (max-width: 900px) {
+  .lcd-dialog-card-compact {
+    width: min(92vw, 720px);
+  }
+
   .lcd-icon-dropdown-submenu {
     top: calc(100% + 6px);
     left: 10px;

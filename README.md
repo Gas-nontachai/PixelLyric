@@ -26,6 +26,7 @@ It is built for workflows where you need to design page-by-page lyrics, prompts,
 ### Audio-assisted preview
 
 - Import MP3 audio for timing reference.
+- Imported and embedded MP3 audio must be 5 minutes or shorter.
 - Trim start and end points before syncing the track to the script.
 - Preview the trimmed range directly in the editor.
 - Use waveform feedback to understand the selected audio region.
