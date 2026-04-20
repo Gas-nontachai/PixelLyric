@@ -1,6 +1,10 @@
 import { startTransition, type ChangeEvent, useCallback, useEffect, useRef, useState } from 'react'
 
 import { DEFAULT_DURATION_MS, SCREEN_PRESETS } from '@/configs/lcd'
+import {
+  getDefaultProjectName,
+  resolveLoadedProjectName,
+} from '@/hooks/lcd-studio-project-name'
 import { isAudioDurationWithinLimit } from '@/lib/audio'
 import {
   createBlankPage,
@@ -60,28 +64,6 @@ const AUDIO_DRIFT_TOLERANCE_S = 0.45
 const AUDIO_CORRECTION_COOLDOWN_MS = 1200
 const DEFAULT_AUDIO_VOLUME_PERCENT = 100
 
-let untitledProjectCounter = 1
-
-function reserveUntitledProjectName(projectName: string) {
-  const match = /^Untitled-(\d+)$/i.exec(projectName.trim())
-
-  if (!match) {
-    return
-  }
-
-  const nextCounter = Number(match[1]) + 1
-
-  if (Number.isFinite(nextCounter)) {
-    untitledProjectCounter = Math.max(untitledProjectCounter, nextCounter)
-  }
-}
-
-function getNextUntitledProjectName() {
-  const nextProjectName = `Untitled-${untitledProjectCounter}`
-  untitledProjectCounter += 1
-  return nextProjectName
-}
-
 function clampTrimStartMs(value: number, track: ProjectAudioTrack) {
   return Math.min(Math.max(0, value), Math.max(0, track.trimEndMs - MIN_TRIM_GAP_MS))
 }
@@ -123,7 +105,7 @@ function pageNeedsProgressRendering(page: PageScript | undefined) {
 }
 
 export function useLcdStudio() {
-  const [projectName, setProjectName] = useState(() => getNextUntitledProjectName())
+  const [projectName, setProjectName] = useState(() => getDefaultProjectName())
   const [isDirty, setIsDirty] = useState(false)
   const [screenType, setScreenType] = useState<ScreenPresetId>('16x2')
   const preset = getPresetById(screenType)
@@ -828,7 +810,6 @@ export function useLcdStudio() {
     stopAudioPreview(nextProjectState.audioTrack?.trimStartMs ?? 0)
     setCountdownRemaining(null)
     currentProjectFileHandleRef.current = nextProjectState.projectFileHandle ?? null
-    reserveUntitledProjectName(nextProjectName)
     setProjectName(nextProjectName)
     setScreenType(nextProjectState.screenType)
     pagesRef.current = nextPages
@@ -867,7 +848,10 @@ export function useLcdStudio() {
   ): Promise<ProjectActionResult> => {
     try {
       const nextProjectState = await projectDocumentToState(document)
-      const nextProjectName = document.projectName || options?.fallbackProjectName || getNextUntitledProjectName()
+      const nextProjectName = resolveLoadedProjectName(
+        document.projectName,
+        options?.fallbackProjectName,
+      )
 
       applyProjectState({
         ...nextProjectState,
@@ -919,7 +903,6 @@ export function useLcdStudio() {
         currentProjectFileHandleRef.current = null
       }
 
-      reserveUntitledProjectName(normalizedNextProjectName)
       setProjectName(normalizedNextProjectName)
       setIsDirty(false)
 
@@ -996,7 +979,6 @@ export function useLcdStudio() {
       }
     }
 
-    reserveUntitledProjectName(normalizedNextProjectName)
     setProjectName(normalizedNextProjectName)
     setIsDirty(true)
 
@@ -1006,7 +988,7 @@ export function useLcdStudio() {
   }, [projectName])
 
   const newProject = useCallback((): ProjectActionResult => {
-    const nextProjectName = getNextUntitledProjectName()
+    const nextProjectName = getDefaultProjectName()
 
     applyProjectState({
       projectName: nextProjectName,

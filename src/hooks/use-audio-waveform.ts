@@ -78,21 +78,23 @@ async function loadWaveform(file: File, bars: number) {
 }
 
 export function useWaveform(file: File | null, bars = 120) {
+  const activeRequestKey = file ? getWaveformRequestKey(file, bars) : null
   const [data, setData] = useState<number[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [loadedRequestKey, setLoadedRequestKey] = useState<string | null>(null)
 
   useEffect(() => {
     if (!file) {
-      setData([])
-      setIsLoading(false)
       return
     }
 
     let isCancelled = false
+    const requestKey = getWaveformRequestKey(file, bars)
 
     const process = async () => {
       setData([])
       setIsLoading(true)
+      setLoadedRequestKey(requestKey)
 
       try {
         const waveform = await loadWaveform(file, bars)
@@ -100,11 +102,13 @@ export function useWaveform(file: File | null, bars = 120) {
         if (!isCancelled) {
           setData(waveform)
           setIsLoading(false)
+          setLoadedRequestKey(requestKey)
         }
       } catch {
         if (!isCancelled) {
           setData([])
           setIsLoading(false)
+          setLoadedRequestKey(requestKey)
         }
       }
     }
@@ -124,7 +128,7 @@ export function useWaveform(file: File | null, bars = 120) {
   }
 
   return {
-    data,
-    isLoading,
+    data: loadedRequestKey === activeRequestKey ? data : [],
+    isLoading: loadedRequestKey === activeRequestKey ? isLoading : false,
   }
 }

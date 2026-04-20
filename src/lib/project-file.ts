@@ -374,8 +374,36 @@ function escapeArduinoString(value: string) {
     .replace(/\n/g, ' ')
 }
 
-function getProjectExportRows(document: PixelLyricProjectDocument, page: PageScript) {
-  const preset = getPresetById(document.screenType)
+type ArduinoExportPage = {
+  animation: LcdAnimation
+  comment: string
+  durationMs: number
+  mode: PageMode
+  rows: string[]
+}
+
+type ArduinoExportModel = {
+  countdownSeconds: CountdownOption
+  pageCount: number
+  pages: ArduinoExportPage[]
+  projectName: string
+  screenType: ScreenPresetId
+  screenColumns: number
+  screenRows: number
+  usedAnimations: LcdAnimation[]
+  usedModes: PageMode[]
+  usesCountdown: boolean
+  usesOnlyStaticReplace: boolean
+  usesScroll: boolean
+  usesTypewriter: boolean
+  usesUltraSimpleStaticTemplate: boolean
+}
+
+function getProjectExportRows(
+  screenType: ScreenPresetId,
+  page: PageScript,
+) {
+  const preset = getPresetById(screenType)
 
   if (page.mode === 'scroll') {
     return normalizeRowTexts(page.rowTexts, preset.rows).map((rowText) =>
@@ -388,14 +416,14 @@ function getProjectExportRows(document: PixelLyricProjectDocument, page: PageScr
   return textToDisplayRows(normalizedText, preset.columns, preset.rows).map(trimTrailingWhitespace)
 }
 
-function getProjectInoRows(document: PixelLyricProjectDocument, page: PageScript) {
-  const preset = getPresetById(document.screenType)
+function getProjectInoRows(screenType: ScreenPresetId, page: PageScript) {
+  const preset = getPresetById(screenType)
 
   if (page.mode === 'scroll') {
     return normalizeRowTexts(page.rowTexts, preset.rows).map((rowText) => rowText.replace(/\r/g, ''))
   }
 
-  return getProjectExportRows(document, page)
+  return getProjectExportRows(screenType, page)
 }
 
 function getInoPageModeValue(mode: PageMode) {
@@ -415,82 +443,122 @@ function getInoAnimationValue(animation: LcdAnimation) {
   }
 }
 
-function serializeInoPageLines(document: PixelLyricProjectDocument) {
-  return document.pages
-    .map((page) => {
-      const rows = getProjectInoRows(document, page)
-      const serializedRows = rows
-        .map((rowText) => `"${escapeArduinoString(rowText)}"`)
-        .join(', ')
-
-      return `  { ${serializedRows} }`
-    })
-    .join(',\n')
+function formatPageComment(page: PageScript, pageIndex: number) {
+  return `Page ${pageIndex + 1}: ${page.mode}, ${page.animation}, ${Math.max(100, Math.round(page.durationMs))}ms`
 }
 
-function serializeInoPageConfigs(document: PixelLyricProjectDocument) {
-  return document.pages
-    .map((page, pageIndex) => {
-      return `  {
+function buildArduinoExportModel(document: PixelLyricProjectDocument): ArduinoExportModel {
+  const preset = getPresetById(document.screenType)
+  const usedModes = Array.from(new Set(document.pages.map((page) => page.mode)))
+  const usedAnimations = Array.from(new Set(document.pages.map((page) => page.animation)))
+  const usesScroll = usedModes.includes('scroll')
+  const usesTypewriter = usedAnimations.includes('typewriter')
+  const usesCountdown = document.countdownSeconds > 0
+  const usesOnlyStaticReplace = !usesScroll && !usesTypewriter && usedAnimations.every((animation) => animation === 'replace')
+  const usesUltraSimpleStaticTemplate = usesOnlyStaticReplace && !usesCountdown
+
+  return {
+    countdownSeconds: document.countdownSeconds,
+    pageCount: document.pages.length,
+    pages: document.pages.map((page, pageIndex) => ({
+      animation: page.animation,
+      comment: formatPageComment(page, pageIndex),
+      durationMs: Math.max(100, Math.round(page.durationMs)),
+      mode: page.mode,
+      rows: getProjectInoRows(document.screenType, page),
+    })),
+    projectName: escapeArduinoString(document.projectName),
+    screenColumns: preset.columns,
+    screenRows: preset.rows,
+    screenType: document.screenType,
+    usedAnimations,
+    usedModes,
+    usesCountdown,
+    usesOnlyStaticReplace,
+    usesScroll,
+    usesTypewriter,
+    usesUltraSimpleStaticTemplate,
+  }
+}
+
+function renderArduinoSectionComment(title: string, description?: string) {
+  return description
+    ? `// ${title}\n// ${description}`
+    : `// ${title}`
+}
+
+function renderArduinoPageRows(page: ArduinoExportPage) {
+  const rows = page.rows
+    .map((rowText) => `"${escapeArduinoString(rowText)}"`)
+    .join(', ')
+
+  return `  { ${rows} }`
+}
+
+function renderArduinoPageConfig(page: ArduinoExportPage, pageIndex: number) {
+  return `  // ${page.comment}
+  {
     ${getInoPageModeValue(page.mode)},
     ${getInoAnimationValue(page.animation)},
-    ${Math.max(100, Math.round(page.durationMs))}UL,
+    ${page.durationMs}UL,
     pageLines[${pageIndex}]
   }`
-    })
-    .join(',\n')
 }
 
-export function serializeProjectInoContent(document: PixelLyricProjectDocument) {
-  const preset = getPresetById(document.screenType)
-  const pageCount = document.pages.length
-  const countdownSeconds = document.countdownSeconds
+function renderArduinoPageData(model: ArduinoExportModel) {
+  const pageLines = model.pages
+    .map((page, pageIndex) => `  // ${page.comment}\n${renderArduinoPageRows(page)}${pageIndex < model.pages.length - 1 ? ',' : ''}`)
+    .join('\n')
 
-  return `// PixelLyric Arduino LCD export
-// Project: ${escapeArduinoString(document.projectName)}
-// Screen: ${document.screenType}
-// Requires: LiquidCrystal_I2C library
-// If your display does not respond, try changing LCD_ADDRESS from 0x27 to 0x3F.
+  const pageConfigs = model.pages
+    .map((page, pageIndex) => `${renderArduinoPageConfig(page, pageIndex)}${pageIndex < model.pages.length - 1 ? ',' : ''}`)
+    .join('\n')
 
-#include <Wire.h>
-#include <LiquidCrystal_I2C.h>
+  return `${renderArduinoSectionComment('Page Data', 'Edit the text rows or timings below to customize the sketch.')}\nconst char* pageLines[PAGE_COUNT][SCREEN_ROWS] = {\n${pageLines}\n};\n\nconst PageConfig pages[PAGE_COUNT] = {\n${pageConfigs}\n};`
+}
 
-const uint8_t LCD_ADDRESS = 0x27;
-LiquidCrystal_I2C lcd(LCD_ADDRESS, ${preset.columns}, ${preset.rows});
+function renderUltraSimpleStaticPageData(model: ArduinoExportModel) {
+  const pageLines = model.pages
+    .map((page, pageIndex) => `  // ${page.comment}\n${renderArduinoPageRows(page)}${pageIndex < model.pages.length - 1 ? ',' : ''}`)
+    .join('\n')
 
-const uint8_t SCREEN_COLS = ${preset.columns};
-const uint8_t SCREEN_ROWS = ${preset.rows};
-const uint8_t PAGE_COUNT = ${pageCount};
-const uint8_t START_COUNTDOWN_SECONDS = ${countdownSeconds};
+  const pageDurations = model.pages
+    .map((page, pageIndex) => `  // ${page.comment}\n  ${page.durationMs}UL${pageIndex < model.pages.length - 1 ? ',' : ''}`)
+    .join('\n')
 
-enum PageMode {
-  PAGE_MODE_STATIC = 0,
-  PAGE_MODE_SCROLL = 1
-};
+  return `${renderArduinoSectionComment('Page Data', 'Edit the text rows or timings below to customize the sketch.')}\nconst char* pageLines[PAGE_COUNT][SCREEN_ROWS] = {\n${pageLines}\n};\n\nconst unsigned long pageDurations[PAGE_COUNT] = {\n${pageDurations}\n};`
+}
 
-enum PageAnimation {
-  ANIMATION_REPLACE = 0,
-  ANIMATION_TYPEWRITER = 1,
-  ANIMATION_SCROLL_LEFT = 2,
-  ANIMATION_SCROLL_RIGHT = 3
-};
+function renderPageModeEnum(model: ArduinoExportModel) {
+  const pageModes = ['  PAGE_MODE_STATIC = 0']
 
-struct PageConfig {
-  uint8_t mode;
-  uint8_t animation;
-  unsigned long durationMs;
-  const char* const* rows;
-};
+  if (model.usesScroll) {
+    pageModes.push('  PAGE_MODE_SCROLL = 1')
+  }
 
-const char* pageLines[PAGE_COUNT][SCREEN_ROWS] = {
-${serializeInoPageLines(document)}
-};
+  return `enum PageMode {\n${pageModes.join(',\n')}\n};`
+}
 
-const PageConfig pages[PAGE_COUNT] = {
-${serializeInoPageConfigs(document)}
-};
+function renderPageAnimationEnum(model: ArduinoExportModel) {
+  const animationLines = ['  ANIMATION_REPLACE = 0']
 
-String repeatSpaces(uint8_t count) {
+  if (model.usedAnimations.includes('typewriter')) {
+    animationLines.push('  ANIMATION_TYPEWRITER = 1')
+  }
+
+  if (model.usedAnimations.includes('scroll-left')) {
+    animationLines.push('  ANIMATION_SCROLL_LEFT = 2')
+  }
+
+  if (model.usedAnimations.includes('scroll-right')) {
+    animationLines.push('  ANIMATION_SCROLL_RIGHT = 3')
+  }
+
+  return `enum PageAnimation {\n${animationLines.join(',\n')}\n};`
+}
+
+function renderRepeatSpacesHelper() {
+  return `String repeatSpaces(uint8_t count) {
   String output = "";
 
   for (uint8_t index = 0; index < count; index++) {
@@ -498,9 +566,11 @@ String repeatSpaces(uint8_t count) {
   }
 
   return output;
+}`
 }
 
-String fitRow(String value) {
+function renderFitRowHelper() {
+  return `String fitRow(String value) {
   value.replace("\\r", "");
   value.replace("\\n", " ");
 
@@ -513,16 +583,20 @@ String fitRow(String value) {
   }
 
   return value;
+}`
 }
 
-void printPageRows(String rows[SCREEN_ROWS]) {
+function renderPrintPageRowsHelper() {
+  return `void printPageRows(String rows[SCREEN_ROWS]) {
   for (uint8_t rowIndex = 0; rowIndex < SCREEN_ROWS; rowIndex++) {
     lcd.setCursor(0, rowIndex);
     lcd.print(rows[rowIndex]);
   }
+}`
 }
 
-void renderStaticPage(uint8_t pageIndex) {
+function renderStaticPageHelper() {
+  return `void renderStaticPage(uint8_t pageIndex) {
   String rows[SCREEN_ROWS];
   const PageConfig& page = pages[pageIndex];
 
@@ -532,14 +606,18 @@ void renderStaticPage(uint8_t pageIndex) {
 
   lcd.clear();
   printPageRows(rows);
+}`
 }
 
-void renderReplacePage(uint8_t pageIndex, unsigned long durationMs) {
+function renderReplacePageHelper() {
+  return `void renderReplacePage(uint8_t pageIndex, unsigned long durationMs) {
   renderStaticPage(pageIndex);
   delay(durationMs);
+}`
 }
 
-void renderTypewriterPage(uint8_t pageIndex, unsigned long durationMs) {
+function renderTypewriterPageHelper() {
+  return `void renderTypewriterPage(uint8_t pageIndex, unsigned long durationMs) {
   String flattened = "";
   const PageConfig& page = pages[pageIndex];
 
@@ -576,13 +654,17 @@ void renderTypewriterPage(uint8_t pageIndex, unsigned long durationMs) {
   if (consumedMs < durationMs) {
     delay(durationMs - consumedMs);
   }
+}`
 }
 
-String buildScrollSource(const String& rowText) {
+function renderBuildScrollSourceHelper() {
+  return `String buildScrollSource(const String& rowText) {
   return repeatSpaces(SCREEN_COLS) + rowText + repeatSpaces(SCREEN_COLS);
+}`
 }
 
-void renderScrollPage(uint8_t pageIndex, bool scrollRight, unsigned long durationMs) {
+function renderScrollPageHelper() {
+  return `void renderScrollPage(uint8_t pageIndex, bool scrollRight, unsigned long durationMs) {
   String scrollSources[SCREEN_ROWS];
   uint16_t maxSteps = 1;
   const PageConfig& page = pages[pageIndex];
@@ -619,9 +701,11 @@ void renderScrollPage(uint8_t pageIndex, bool scrollRight, unsigned long duratio
   if (consumedMs < durationMs) {
     delay(durationMs - consumedMs);
   }
+}`
 }
 
-void runCountdown() {
+function renderCountdownHelper() {
+  return `void runCountdown() {
   if (START_COUNTDOWN_SECONDS == 0) {
     return;
   }
@@ -636,9 +720,18 @@ void runCountdown() {
   }
 
   lcd.clear();
+}`
 }
 
-void renderPage(uint8_t pageIndex) {
+function renderPageDispatcher(model: ArduinoExportModel) {
+  if (model.usesOnlyStaticReplace) {
+    return `void renderPage(uint8_t pageIndex) {
+  renderReplacePage(pageIndex, pages[pageIndex].durationMs);
+}`
+  }
+
+  if (model.usesScroll && model.usesTypewriter) {
+    return `void renderPage(uint8_t pageIndex) {
   const PageConfig& page = pages[pageIndex];
   const unsigned long durationMs = page.durationMs;
   const uint8_t mode = page.mode;
@@ -655,20 +748,176 @@ void renderPage(uint8_t pageIndex) {
   }
 
   renderReplacePage(pageIndex, durationMs);
+}`
+  }
+
+  if (model.usesScroll) {
+    return `void renderPage(uint8_t pageIndex) {
+  const PageConfig& page = pages[pageIndex];
+  const unsigned long durationMs = page.durationMs;
+
+  if (page.mode == PAGE_MODE_SCROLL) {
+    renderScrollPage(pageIndex, page.animation == ANIMATION_SCROLL_RIGHT, durationMs);
+    return;
+  }
+
+  renderReplacePage(pageIndex, durationMs);
+}`
+  }
+
+  if (model.usesTypewriter) {
+    return `void renderPage(uint8_t pageIndex) {
+  const PageConfig& page = pages[pageIndex];
+  const unsigned long durationMs = page.durationMs;
+
+  if (page.animation == ANIMATION_TYPEWRITER) {
+    renderTypewriterPage(pageIndex, durationMs);
+    return;
+  }
+
+  renderReplacePage(pageIndex, durationMs);
+}`
+  }
+
+  return `void renderPage(uint8_t pageIndex) {
+  renderReplacePage(pageIndex, pages[pageIndex].durationMs);
+}`
 }
 
-void setup() {
-  lcd.init();
-  lcd.backlight();
-  runCountdown();
+function renderSetupFunction(model: ArduinoExportModel) {
+  const lines = [
+    'void setup() {',
+    '  lcd.init();',
+    '  lcd.backlight();',
+  ]
+
+  if (model.usesCountdown) {
+    lines.push('  runCountdown();')
+  }
+
+  lines.push('}')
+
+  return lines.join('\n')
 }
 
-void loop() {
+function renderRuntimeHelpers(model: ArduinoExportModel) {
+  const helpers = [
+    renderFitRowHelper(),
+    renderPrintPageRowsHelper(),
+    renderStaticPageHelper(),
+    renderReplacePageHelper(),
+  ]
+
+  if (model.usesTypewriter || model.usesScroll) {
+    helpers.unshift(renderRepeatSpacesHelper())
+  }
+
+  if (model.usesTypewriter) {
+    helpers.push(renderTypewriterPageHelper())
+  }
+
+  if (model.usesScroll) {
+    helpers.push(renderBuildScrollSourceHelper(), renderScrollPageHelper())
+  }
+
+  if (model.usesCountdown) {
+    helpers.push(renderCountdownHelper())
+  }
+
+  helpers.push(renderPageDispatcher(model), renderSetupFunction(model), `void loop() {
   for (uint8_t pageIndex = 0; pageIndex < PAGE_COUNT; pageIndex++) {
     renderPage(pageIndex);
   }
+}`)
+
+  return `${renderArduinoSectionComment('Runtime Helpers', 'These functions drive playback. Most projects only need the config above.')}\n${helpers.join('\n\n')}`
 }
+
+function renderUltraSimpleStaticLoop() {
+  return `void loop() {
+  for (uint8_t pageIndex = 0; pageIndex < PAGE_COUNT; pageIndex++) {
+    lcd.clear();
+
+    for (uint8_t rowIndex = 0; rowIndex < SCREEN_ROWS; rowIndex++) {
+      lcd.setCursor(0, rowIndex);
+      lcd.print(fitRow(String(pageLines[pageIndex][rowIndex])));
+    }
+
+    delay(pageDurations[pageIndex]);
+  }
+}`
+}
+
+function renderUltraSimpleStaticRuntimeHelpers() {
+  return `${renderArduinoSectionComment('Runtime Helpers', 'These functions drive playback. Most projects only need the config above.')}\n${renderFitRowHelper()}\n\nvoid setup() {
+  lcd.init();
+  lcd.backlight();
+}\n\n${renderUltraSimpleStaticLoop()}`
+}
+
+function renderUltraSimpleStaticIno(model: ArduinoExportModel) {
+  return `// PixelLyric Arduino LCD export
+// Project: ${model.projectName}
+// Screen: ${model.screenType}
+// Requires: LiquidCrystal_I2C library
+// If your display does not respond, try changing LCD_ADDRESS from 0x27 to 0x3F.
+
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
+${renderArduinoSectionComment('User Config', 'Adjust these values first when wiring or retiming the display.')}
+const uint8_t LCD_ADDRESS = 0x27;
+const uint8_t SCREEN_COLS = ${model.screenColumns};
+const uint8_t SCREEN_ROWS = ${model.screenRows};
+const uint8_t PAGE_COUNT = ${model.pageCount};
+
+LiquidCrystal_I2C lcd(LCD_ADDRESS, SCREEN_COLS, SCREEN_ROWS);
+
+${renderUltraSimpleStaticPageData(model)}
+
+${renderUltraSimpleStaticRuntimeHelpers()}
 `
+}
+
+function renderArduinoIno(model: ArduinoExportModel) {
+  return `// PixelLyric Arduino LCD export
+// Project: ${model.projectName}
+// Screen: ${model.screenType}
+// Requires: LiquidCrystal_I2C library
+// If your display does not respond, try changing LCD_ADDRESS from 0x27 to 0x3F.
+
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
+${renderArduinoSectionComment('User Config', 'Adjust these values first when wiring or retiming the display.')}
+const uint8_t LCD_ADDRESS = 0x27;
+const uint8_t SCREEN_COLS = ${model.screenColumns};
+const uint8_t SCREEN_ROWS = ${model.screenRows};
+const uint8_t PAGE_COUNT = ${model.pageCount};
+const uint8_t START_COUNTDOWN_SECONDS = ${model.countdownSeconds};
+
+LiquidCrystal_I2C lcd(LCD_ADDRESS, SCREEN_COLS, SCREEN_ROWS);
+
+${renderPageModeEnum(model)}
+
+${renderPageAnimationEnum(model)}
+
+struct PageConfig {
+  uint8_t mode;
+  uint8_t animation;
+  unsigned long durationMs;
+  const char* const* rows;
+};
+
+${renderArduinoPageData(model)}
+
+${renderRuntimeHelpers(model)}
+`
+}
+
+export function serializeProjectInoContent(document: PixelLyricProjectDocument) {
+  const model = buildArduinoExportModel(document)
+  return model.usesUltraSimpleStaticTemplate ? renderUltraSimpleStaticIno(model) : renderArduinoIno(model)
 }
 
 export function downloadProjectDocument(document: PixelLyricProjectDocument, fileName?: string) {
@@ -694,6 +943,10 @@ export function downloadTextContentFile(content: string, fileName: string, mimeT
 }
 
 function downloadTextFile(content: string, fileName: string, mimeType: string) {
+  if (!documentRef) {
+    throw new Error('File downloads are only available in the browser')
+  }
+
   const blob = new Blob([content], { type: mimeType })
   const objectUrl = URL.createObjectURL(blob)
   const anchor = documentRef.createElement('a')
@@ -711,4 +964,4 @@ export function getProjectFileName(projectName: string, extension = PROJECT_FILE
   return `${sanitizeProjectFileBaseName(projectName)}${extension}`
 }
 
-const documentRef = document
+const documentRef = typeof document === 'undefined' ? null : document

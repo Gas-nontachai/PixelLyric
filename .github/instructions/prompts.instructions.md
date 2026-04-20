@@ -23,6 +23,7 @@ Use the existing `src/` structure consistently:
 - `lib/` for domain logic, serialization, browser APIs, and non-UI utilities
 - `types/` for shared type definitions
 - `configs/` for constants and project-level configuration
+- `_test_/` for test files
 
 Create new top-level folders only when the responsibility is clearly distinct and reusable.
 
@@ -140,6 +141,16 @@ Create new top-level folders only when the responsibility is clearly distinct an
 
 - Important components and hooks should be testable.
 - At minimum, cover rendering and key interactions where practical.
+- Store new test files in a `_test_/` folder instead of colocating them with production files.
+
+Example structure:
+
+```text
+components/
+  _test_/
+    btn.test.ts
+  btn.tsx
+```
 
 ---
 
