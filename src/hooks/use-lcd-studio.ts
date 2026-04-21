@@ -8,7 +8,7 @@ import {
 import { isAudioDurationWithinLimit } from '@/lib/audio'
 import {
   createBlankPage,
-  createInitialPage,
+  createDefaultPages,
   createDuplicatedPage,
   getAudioTimelinePositionMs,
   getPageAudioStartMs,
@@ -104,23 +104,27 @@ function pageNeedsProgressRendering(page: PageScript | undefined) {
   return page.mode === 'scroll' || page.animation === 'typewriter'
 }
 
+function createDefaultPlaybackState(isLooping = false): PlaybackState {
+  return {
+    activePageIndex: 0,
+    isPlaying: false,
+    isLooping,
+    pageProgressMs: 0,
+  }
+}
+
 export function useLcdStudio() {
   const [projectName, setProjectName] = useState(() => getDefaultProjectName())
   const [isDirty, setIsDirty] = useState(false)
   const [screenType, setScreenType] = useState<ScreenPresetId>('16x2')
   const preset = getPresetById(screenType)
-  const [pages, setPages] = useState<PageScript[]>(() => [createInitialPage(preset.rows)])
+  const [pages, setPages] = useState<PageScript[]>(() => createDefaultPages(preset.rows))
   const [audioTrack, setAudioTrack] = useState<ProjectAudioTrack | null>(null)
   const [audioPreview, setAudioPreview] = useState<AudioPreviewState>({
     isPlaying: false,
     positionMs: 0,
   })
-  const [playback, setPlayback] = useState<PlaybackState>({
-    activePageIndex: 0,
-    isPlaying: false,
-    isLooping: false,
-    pageProgressMs: 0,
-  })
+  const [playback, setPlayback] = useState<PlaybackState>(() => createDefaultPlaybackState(true))
   const [countdownSeconds, setCountdownSeconds] = useState<CountdownOption>(0)
   const [countdownRemaining, setCountdownRemaining] = useState<number | null>(null)
 
@@ -790,22 +794,21 @@ export function useLcdStudio() {
     audioTrack: ProjectAudioTrack | null
     projectFileHandle?: ProjectFileHandle | null
     isDirty?: boolean
+    defaultLooping?: boolean
   }) => {
     const nextPreset = getPresetById(nextProjectState.screenType)
+    const shouldUseDefaultTemplate = nextProjectState.pages.length === 0
     const nextProjectName = normalizeProjectName(nextProjectState.projectName)
     const nextPages = normalizePagesForPreset(
-      nextProjectState.pages.length > 0
-        ? nextProjectState.pages
-        : [createInitialPage(nextPreset.rows)],
+      shouldUseDefaultTemplate
+        ? createDefaultPages(nextPreset.rows)
+        : nextProjectState.pages,
       nextPreset.columns,
       nextPreset.rows,
     )
-    const nextPlaybackState: PlaybackState = {
-      activePageIndex: 0,
-      isPlaying: false,
-      isLooping: false,
-      pageProgressMs: 0,
-    }
+    const nextPlaybackState = createDefaultPlaybackState(
+      nextProjectState.defaultLooping ?? shouldUseDefaultTemplate,
+    )
 
     stopAudioPreview(nextProjectState.audioTrack?.trimStartMs ?? 0)
     setCountdownRemaining(null)
@@ -994,10 +997,11 @@ export function useLcdStudio() {
       projectName: nextProjectName,
       screenType: '16x2',
       countdownSeconds: 0,
-      pages: [createInitialPage(getPresetById('16x2').rows)],
+      pages: createDefaultPages(getPresetById('16x2').rows),
       audioTrack: null,
       projectFileHandle: null,
       isDirty: false,
+      defaultLooping: true,
     })
 
     return {

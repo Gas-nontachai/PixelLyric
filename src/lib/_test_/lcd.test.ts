@@ -4,6 +4,7 @@ import { DEFAULT_DURATION_MS, DEFAULT_TEXT } from '@/configs/lcd'
 import {
   autoWrapTextareaValue,
   createBlankPage,
+  createDefaultPages,
   createDuplicatedPage,
   createInitialPage,
   formatDurationInput,
@@ -97,11 +98,25 @@ describe('lcd utilities', () => {
   it('creates initial, blank, and duplicated pages with normalized rows', () => {
     const initialPage = createInitialPage(2)
     const blankPage = createBlankPage(3)
+    const defaultPages = createDefaultPages(2)
     const duplicatedPage = createDuplicatedPage(
       createPage({ id: 'original', rowTexts: ['top'] }),
       2,
     )
 
+    expect(defaultPages).toHaveLength(2)
+    expect(defaultPages[0]).toMatchObject({
+      text: 'hello',
+      durationMs: 500,
+      durationUnit: 'ms',
+      rowTexts: ['', ''],
+    })
+    expect(defaultPages[1]).toMatchObject({
+      text: 'Pixelyric',
+      durationMs: DEFAULT_DURATION_MS,
+      durationUnit: 'ms',
+      rowTexts: ['', ''],
+    })
     expect(initialPage.text).toBe(DEFAULT_TEXT)
     expect(initialPage.durationMs).toBe(DEFAULT_DURATION_MS)
     expect(initialPage.rowTexts).toEqual(['', ''])

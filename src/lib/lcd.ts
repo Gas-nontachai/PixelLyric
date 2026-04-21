@@ -141,6 +141,21 @@ function createPage(rows: number, text: string): PageScript {
   }
 }
 
+export function createDefaultPages(rows: number): PageScript[] {
+  return [
+    {
+      ...createPage(rows, 'hello'),
+      durationMs: 1000,
+      durationUnit: 'ms',
+    },
+    {
+      ...createPage(rows, 'Pixelyric'),
+      durationMs: 1000,
+      durationUnit: 'ms',
+    },
+  ]
+}
+
 export function createInitialPage(rows: number): PageScript {
   return createPage(rows, DEFAULT_TEXT)
 }
