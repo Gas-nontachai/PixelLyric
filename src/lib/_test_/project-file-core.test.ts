@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 
-import { DEFAULT_TEXT } from '@/configs/lcd'
 import {
   createProjectDocument,
   getProjectFileName,
@@ -90,9 +89,19 @@ describe('project-file core utilities', () => {
     expect(document.projectName).toBe('Untitled')
     expect(document.countdownSeconds).toBe(0)
     expect(document.savedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/)
-    expect(document.pages).toHaveLength(1)
-    expect(document.pages[0].text).toBe(DEFAULT_TEXT)
-    expect(document.pages[0].rowTexts).toEqual(['', '', '', ''])
+    expect(document.pages).toHaveLength(2)
+    expect(document.pages[0]).toMatchObject({
+      text: 'hello',
+      durationMs: 1000,
+      durationUnit: 'ms',
+      rowTexts: ['', '', '', ''],
+    })
+    expect(document.pages[1]).toMatchObject({
+      text: 'Pixelyric',
+      durationMs: 1000,
+      durationUnit: 'ms',
+      rowTexts: ['', '', '', ''],
+    })
   })
 
   it('normalizes serialized pages and embedded audio payloads', () => {

@@ -1,4 +1,5 @@
 import {
+  createDefaultPages,
   createInitialPage,
   getPresetById,
   normalizePageText,
@@ -247,7 +248,7 @@ function normalizeProjectDocument(value: unknown): PixelLyricProjectDocument {
   const rawPages = Array.isArray(value.pages) ? value.pages : []
   const pages = rawPages.length > 0
     ? rawPages.map((page) => normalizeSerializedPage(page, preset.columns, preset.rows))
-    : [createInitialPage(preset.rows)]
+    : createDefaultPages(preset.rows)
 
   let audioTrack: SerializedProjectAudioTrack | null = null
 
