@@ -1388,6 +1388,7 @@
   box-shadow: 0 20px 50px rgba(20, 42, 24, 0.06);
   display: grid;
   gap: 18px;
+  min-height: 0;
 }
 
 .lcd-editor-locked {
@@ -1451,6 +1452,7 @@
 .lcd-editor-body {
   display: grid;
   gap: 16px;
+  min-height: 0;
 }
 
 .lcd-editor-grid {
@@ -1849,9 +1851,12 @@
     top: 16px;
     right: 16px;
     bottom: 16px;
+    height: calc(100dvh - 32px);
     width: min(360px, calc(100vw - 32px));
     max-width: calc(100vw - 32px);
-    overflow: auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
     z-index: 60;
     transition:
       opacity 180ms ease,
@@ -1867,6 +1872,20 @@
   .lcd-editor-dock.lcd-editor-dock-open {
     opacity: 1;
     transform: translateX(0);
+  }
+
+  .lcd-editor {
+    min-height: 100%;
+  }
+
+  .lcd-editor-body {
+    overflow: visible;
+  }
+
+  .lcd-field textarea {
+    max-height: none;
+    resize: vertical;
+    overflow: visible;
   }
 
   .lcd-board {
