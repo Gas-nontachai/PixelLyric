@@ -31,6 +31,7 @@ function App() {
     screenType,
     preset,
     pages,
+    selectedPageIds,
     playback,
     audio,
     projectName,
@@ -322,6 +323,7 @@ function App() {
             columns={preset.columns}
             rows={preset.rows}
             pages={pages}
+            selectedPageIds={selectedPageIds}
             activePageIndex={playback.activePageIndex}
             isPlaybackLocked={isPlaybackLocked}
             canCloseEditor={isOverlayEditor}
@@ -329,8 +331,9 @@ function App() {
             onScreenTypeChange={editorActions.handleScreenTypeChange}
             onSelectPage={editorActions.handleSelectPage}
             onAddPage={editorActions.handleAddPage}
-            onDuplicatePage={editorActions.handleDuplicatePage}
-            onDeletePage={editorActions.handleDeletePage}
+            onDuplicateSelectedPages={editorActions.handleDuplicateSelectedPages}
+            onDeleteSelectedPages={editorActions.handleDeleteSelectedPages}
+            onReorderPages={editorActions.handleReorderPages}
             onPageModeChange={editorActions.handlePageModeChange}
             onPageAnimationChange={editorActions.handlePageAnimationChange}
             onPageTextChange={editorActions.handlePageTextChange}

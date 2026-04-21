@@ -1427,6 +1427,7 @@
 }
 
 .lcd-editor-tab {
+  position: relative;
   flex: 0 0 auto;
   min-width: 42px;
   height: 42px;
@@ -1438,9 +1439,47 @@
   cursor: pointer;
 }
 
+.lcd-editor-tab-selected {
+  border-color: rgba(99, 140, 31, 0.34);
+  background: rgba(217, 236, 184, 0.45);
+}
+
 .lcd-editor-tab-active {
   background: rgba(144, 180, 47, 0.22);
   border-color: rgba(6, 123, 26, 0.28);
+}
+
+.lcd-editor-tab-active-selected {
+  box-shadow: 0 0 0 3px rgba(144, 180, 47, 0.18);
+}
+
+.lcd-editor-tab-dragging {
+  opacity: 0.55;
+}
+
+.lcd-editor-tab-drop-before::before,
+.lcd-editor-tab-drop-after::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 999px;
+  background: rgba(96, 140, 20, 0.92);
+}
+
+.lcd-editor-tab-drop-before::before {
+  left: -6px;
+}
+
+.lcd-editor-tab-drop-after::after {
+  right: -6px;
+}
+
+.lcd-editor-selection-summary {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: rgba(30, 53, 21, 0.74);
 }
 
 .lcd-editor-actions {

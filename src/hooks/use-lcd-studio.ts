@@ -9,7 +9,6 @@ import { isAudioDurationWithinLimit } from '@/lib/audio'
 import {
   createBlankPage,
   createDefaultPages,
-  createDuplicatedPage,
   getAudioTimelinePositionMs,
   getPageAudioStartMs,
   getPresetById,
@@ -19,6 +18,17 @@ import {
   normalizeRowTexts,
   parseDurationInput,
 } from '@/lib/lcd'
+import {
+  deletePageSelection,
+  duplicatePageSelection,
+  normalizeSelectedPageIds,
+  reorderPageSelection,
+  togglePageSelection,
+} from '@/lib/editor-page-selection'
+import type {
+  PageDropPosition,
+  PageSelectionOptions,
+} from '@/lib/editor-page-selection'
 import {
   createProjectDocument as buildProjectDocument,
   downloadProjectDocument,
@@ -96,6 +106,15 @@ function normalizePagesForPreset(pages: PageScript[], columns: number, rows: num
   }))
 }
 
+function getPageIndexById(pages: PageScript[], pageId: string | null | undefined) {
+  if (!pageId) {
+    return -1
+  }
+
+  return pages.findIndex((page) => page.id === pageId)
+}
+
+
 function pageNeedsProgressRendering(page: PageScript | undefined) {
   if (!page) {
     return false
@@ -114,11 +133,18 @@ function createDefaultPlaybackState(isLooping = false): PlaybackState {
 }
 
 export function useLcdStudio() {
+  const initialScreenType: ScreenPresetId = '16x2'
+  const initialPreset = getPresetById(initialScreenType)
+  const [initialPages] = useState<PageScript[]>(() => createDefaultPages(initialPreset.rows))
+
   const [projectName, setProjectName] = useState(() => getDefaultProjectName())
   const [isDirty, setIsDirty] = useState(false)
-  const [screenType, setScreenType] = useState<ScreenPresetId>('16x2')
+  const [screenType, setScreenType] = useState<ScreenPresetId>(initialScreenType)
   const preset = getPresetById(screenType)
-  const [pages, setPages] = useState<PageScript[]>(() => createDefaultPages(preset.rows))
+  const [pages, setPages] = useState<PageScript[]>(() => initialPages)
+  const [selectedPageIds, setSelectedPageIds] = useState<string[]>(() =>
+    initialPages[0] ? [initialPages[0].id] : [],
+  )
   const [audioTrack, setAudioTrack] = useState<ProjectAudioTrack | null>(null)
   const [audioPreview, setAudioPreview] = useState<AudioPreviewState>({
     isPlaying: false,
@@ -533,10 +559,15 @@ export function useLcdStudio() {
   const handleScreenTypeChange = (event: ChangeEvent<HTMLSelectElement>) => {
     const nextScreenType = event.target.value as ScreenPresetId
     const nextPreset = getPresetById(nextScreenType)
+    const nextPages = normalizePagesForPreset(pagesRef.current, nextPreset.columns, nextPreset.rows)
+    const activePageId = pagesRef.current[playbackRef.current.activePageIndex]?.id ?? pagesRef.current[0]?.id ?? null
+    const fallbackPageId = activePageId ?? nextPages[0]?.id ?? null
 
     setScreenType(nextScreenType)
-    setPages((currentPages) =>
-      normalizePagesForPreset(currentPages, nextPreset.columns, nextPreset.rows),
+    pagesRef.current = nextPages
+    setPages(nextPages)
+    setSelectedPageIds((currentSelectedPageIds) =>
+      normalizeSelectedPageIds(nextPages, currentSelectedPageIds, fallbackPageId),
     )
     setPlayback((currentPlayback) => ({
       ...currentPlayback,
@@ -545,37 +576,79 @@ export function useLcdStudio() {
     setIsDirty(true)
   }
 
-  const handleSelectPage = (pageIndex: number) => {
+  const handleSelectPage = (pageIndex: number, options?: PageSelectionOptions) => {
+    const selectedPage = pagesRef.current[pageIndex]
+
+    if (!selectedPage) {
+      return
+    }
+
+    if (options?.shiftKey) {
+      setSelectedPageIds((currentSelectedPageIds) => {
+        return togglePageSelection(pagesRef.current, currentSelectedPageIds, selectedPage.id)
+      })
+      return
+    }
+
+    setSelectedPageIds([selectedPage.id])
     resetPlaybackToPage(pageIndex, false)
   }
 
   const handleAddPage = () => {
     const nextPage = createBlankPage(preset.rows)
+    const nextPages = [...pagesRef.current, nextPage]
+    const nextPageIndex = nextPages.length - 1
 
-    setPages((currentPages) => [...currentPages, nextPage])
-    resetPlaybackToPage(pages.length, false)
+    pagesRef.current = nextPages
+    setPages(nextPages)
+    setSelectedPageIds([nextPage.id])
+    resetPlaybackToPage(nextPageIndex, false)
     setIsDirty(true)
   }
 
   const handleDuplicatePage = (pageIndex: number) => {
-    setPages((currentPages) => {
-      const duplicatedPage = createDuplicatedPage(currentPages[pageIndex], preset.rows)
-      const nextPages = [...currentPages]
-      nextPages.splice(pageIndex + 1, 0, duplicatedPage)
-      return nextPages
-    })
+    const activePageId = pagesRef.current[playbackRef.current.activePageIndex]?.id ?? pagesRef.current[0]?.id ?? null
+    const targetPageId = pagesRef.current[pageIndex]?.id
 
-    resetPlaybackToPage(pageIndex + 1, false)
+    if (!targetPageId) {
+      return
+    }
+
+    const result = duplicatePageSelection(pagesRef.current, [targetPageId], activePageId, preset.rows)
+
+    if (!result.didChange || !result.activePageId) {
+      return
+    }
+
+    const nextActivePageIndex = getPageIndexById(result.nextPages, result.activePageId)
+
+    pagesRef.current = result.nextPages
+    setPages(result.nextPages)
+    setSelectedPageIds(result.nextSelectedPageIds)
+    resetPlaybackToPage(nextActivePageIndex === -1 ? 0 : nextActivePageIndex, false)
     setIsDirty(true)
   }
 
   const handleDeletePage = (pageIndex: number) => {
-    if (pages.length === 1) {
+    const activePageId = pagesRef.current[playbackRef.current.activePageIndex]?.id ?? pagesRef.current[0]?.id ?? null
+    const targetPageId = pagesRef.current[pageIndex]?.id
+
+    if (!targetPageId) {
       return
     }
 
-    setPages((currentPages) => currentPages.filter((_, index) => index !== pageIndex))
-    resetPlaybackToPage(Math.max(0, pageIndex - 1), false)
+    const result = deletePageSelection(pagesRef.current, [targetPageId], activePageId)
+
+    if (!result.didChange || !result.activePageId) {
+      return
+    }
+
+    const nextActivePageIndex = getPageIndexById(result.nextPages, result.activePageId)
+
+    pagesRef.current = result.nextPages
+    setPages(result.nextPages)
+    setSelectedPageIds(result.nextSelectedPageIds)
+    resetPlaybackToPage(nextActivePageIndex === -1 ? 0 : nextActivePageIndex, false)
     setIsDirty(true)
   }
 
@@ -594,6 +667,64 @@ export function useLcdStudio() {
     })
 
     resetPlaybackToPage(nextIndex, false)
+    setIsDirty(true)
+  }
+
+  const handleDuplicateSelectedPages = () => {
+    const activePageId = pagesRef.current[playbackRef.current.activePageIndex]?.id ?? pagesRef.current[0]?.id ?? null
+    const result = duplicatePageSelection(pagesRef.current, selectedPageIds, activePageId, preset.rows)
+
+    if (!result.didChange || !result.activePageId) {
+      return
+    }
+
+    const nextActivePageIndex = getPageIndexById(result.nextPages, result.activePageId)
+
+    pagesRef.current = result.nextPages
+    setPages(result.nextPages)
+    setSelectedPageIds(result.nextSelectedPageIds)
+    resetPlaybackToPage(nextActivePageIndex === -1 ? 0 : nextActivePageIndex, false)
+    setIsDirty(true)
+  }
+
+  const handleDeleteSelectedPages = () => {
+    const activePageId = pagesRef.current[playbackRef.current.activePageIndex]?.id ?? pagesRef.current[0]?.id ?? null
+    const result = deletePageSelection(pagesRef.current, selectedPageIds, activePageId)
+
+    if (!result.didChange || !result.activePageId) {
+      return
+    }
+
+    const nextActivePageIndex = getPageIndexById(result.nextPages, result.activePageId)
+
+    pagesRef.current = result.nextPages
+    setPages(result.nextPages)
+    setSelectedPageIds(result.nextSelectedPageIds)
+    resetPlaybackToPage(nextActivePageIndex === -1 ? 0 : nextActivePageIndex, false)
+    setIsDirty(true)
+  }
+
+  const handleReorderPages = (draggedPageId: string, targetPageId: string, dropPosition: PageDropPosition) => {
+    const activePageId = pagesRef.current[playbackRef.current.activePageIndex]?.id ?? pagesRef.current[0]?.id ?? null
+    const result = reorderPageSelection(
+      pagesRef.current,
+      selectedPageIds,
+      draggedPageId,
+      targetPageId,
+      dropPosition,
+      activePageId,
+    )
+
+    if (!result.didChange || !result.activePageId) {
+      return
+    }
+
+    const nextActivePageIndex = getPageIndexById(result.nextPages, result.activePageId)
+
+    pagesRef.current = result.nextPages
+    setPages(result.nextPages)
+    setSelectedPageIds(result.nextSelectedPageIds)
+    resetPlaybackToPage(nextActivePageIndex === -1 ? 0 : nextActivePageIndex, false)
     setIsDirty(true)
   }
 
@@ -817,6 +948,7 @@ export function useLcdStudio() {
     setScreenType(nextProjectState.screenType)
     pagesRef.current = nextPages
     setPages(nextPages)
+    setSelectedPageIds(nextPages[0] ? [nextPages[0].id] : [])
     setCountdownSeconds(nextProjectState.countdownSeconds)
     setIsDirty(nextProjectState.isDirty ?? false)
     playbackRef.current = nextPlaybackState
@@ -1354,6 +1486,7 @@ export function useLcdStudio() {
     screenType,
     preset,
     pages,
+    selectedPageIds,
     activePage,
     playback,
     projectName,
@@ -1383,6 +1516,9 @@ export function useLcdStudio() {
       handleDuplicatePage,
       handleDeletePage,
       handleMovePage,
+      handleDuplicateSelectedPages,
+      handleDeleteSelectedPages,
+      handleReorderPages,
       handlePageModeChange,
       handlePageAnimationChange,
       handlePageTextChange,

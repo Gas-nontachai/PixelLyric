@@ -1,4 +1,4 @@
-import { memo, type ChangeEvent, type KeyboardEvent, useState } from 'react'
+import { memo, type ChangeEvent, type DragEvent, type KeyboardEvent, useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight, Copy, Plus, Trash2, X } from 'lucide-react'
 
 import {
@@ -22,6 +22,7 @@ import type {
   ToastPosition,
   ToastVariant,
 } from '@/types'
+import type { PageDropPosition, PageSelectionOptions } from '@/lib/editor-page-selection'
 
 type LcdControlPanelProps = {
   presets: ScreenPreset[]
@@ -29,15 +30,17 @@ type LcdControlPanelProps = {
   columns: number
   rows: number
   pages: PageScript[]
+  selectedPageIds: string[]
   activePageIndex: number
   isPlaybackLocked: boolean
   canCloseEditor: boolean
   onCloseEditor: () => void
   onScreenTypeChange: (event: ChangeEvent<HTMLSelectElement>) => void
-  onSelectPage: (pageIndex: number) => void
+  onSelectPage: (pageIndex: number, options?: PageSelectionOptions) => void
   onAddPage: () => void
-  onDuplicatePage: (pageIndex: number) => void
-  onDeletePage: (pageIndex: number) => void
+  onDuplicateSelectedPages: () => void
+  onDeleteSelectedPages: () => void
+  onReorderPages: (draggedPageId: string, targetPageId: string, dropPosition: PageDropPosition) => void
   onPageModeChange: (pageIndex: number, mode: PageMode) => void
   onPageAnimationChange: (pageIndex: number, animation: LcdAnimation) => void
   onPageTextChange: (pageIndex: number, event: ChangeEvent<HTMLTextAreaElement>) => void
@@ -58,6 +61,7 @@ function LcdControlPanelComponent({
   selectedScreenType,
   rows,
   pages,
+  selectedPageIds,
   activePageIndex,
   isPlaybackLocked,
   canCloseEditor,
@@ -65,8 +69,9 @@ function LcdControlPanelComponent({
   onScreenTypeChange,
   onSelectPage,
   onAddPage,
-  onDuplicatePage,
-  onDeletePage,
+  onDuplicateSelectedPages,
+  onDeleteSelectedPages,
+  onReorderPages,
   onPageModeChange,
   onPageAnimationChange,
   onPageTextChange,
@@ -76,9 +81,19 @@ function LcdControlPanelComponent({
   onShowToast,
 }: LcdControlPanelProps) {
   const activePage = pages[activePageIndex]
+  const selectedPageIdSet = useMemo(() => new Set(selectedPageIds), [selectedPageIds])
   const animationOptions =
     activePage.mode === 'scroll' ? SCROLL_ANIMATION_OPTIONS : PAGE_ANIMATION_OPTIONS
   const formattedDuration = formatDurationInput(activePage.durationMs, activePage.durationUnit)
+  const [dragState, setDragState] = useState<{
+    draggedPageId: string | null
+    targetPageId: string | null
+    dropPosition: PageDropPosition | null
+  }>({
+    draggedPageId: null,
+    targetPageId: null,
+    dropPosition: null,
+  })
   const [durationDraftState, setDurationDraftState] = useState({
     pageId: activePage.id,
     unit: activePage.durationUnit,
@@ -113,6 +128,76 @@ function LcdControlPanelComponent({
     event.currentTarget.blur()
   }
 
+  const selectedActionCount = selectedPageIds.length > 0 ? selectedPageIds.length : 1
+  const canDeleteSelectedPages = pages.length > selectedActionCount
+
+  const clearDragState = () => {
+    setDragState({
+      draggedPageId: null,
+      targetPageId: null,
+      dropPosition: null,
+    })
+  }
+
+  const clearDropTarget = () => {
+    setDragState((currentDragState) => ({
+      ...currentDragState,
+      targetPageId: null,
+      dropPosition: null,
+    }))
+  }
+
+  const handlePageChipDragStart = (event: DragEvent<HTMLButtonElement>, pageId: string) => {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', pageId)
+    setDragState({
+      draggedPageId: pageId,
+      targetPageId: null,
+      dropPosition: null,
+    })
+  }
+
+  const handlePageChipDragOver = (event: DragEvent<HTMLButtonElement>, pageId: string) => {
+    if (isPlaybackLocked || !dragState.draggedPageId) {
+      return
+    }
+
+    const movingPageIds = selectedPageIdSet.has(dragState.draggedPageId)
+      ? new Set(selectedPageIds)
+      : new Set([dragState.draggedPageId])
+
+    if (movingPageIds.has(pageId)) {
+      if (dragState.targetPageId !== null || dragState.dropPosition !== null) {
+        clearDropTarget()
+      }
+      return
+    }
+
+    event.preventDefault()
+    const { left, width } = event.currentTarget.getBoundingClientRect()
+    const dropPosition = event.clientX - left < width / 2 ? 'before' : 'after'
+
+    setDragState((currentDragState) => (
+      currentDragState.targetPageId === pageId && currentDragState.dropPosition === dropPosition
+        ? currentDragState
+        : {
+            ...currentDragState,
+            targetPageId: pageId,
+            dropPosition,
+          }
+    ))
+  }
+
+  const handlePageChipDrop = (pageId: string) => {
+    if (!dragState.draggedPageId || !dragState.targetPageId || !dragState.dropPosition) {
+      clearDragState()
+      return
+    }
+
+    onReorderPages(dragState.draggedPageId, pageId, dragState.dropPosition)
+    clearDragState()
+  }
+
   return (
     <div
       className={`lcd-editor${isPlaybackLocked ? ' lcd-editor-locked' : ''}`}
@@ -132,16 +217,34 @@ function LcdControlPanelComponent({
           {pages.map((page, pageIndex) => (
             <button
               key={page.id}
-              className={`lcd-editor-tab${pageIndex === activePageIndex ? ' lcd-editor-tab-active' : ''}`}
-              onClick={() => onSelectPage(pageIndex)}
+              className={[
+                'lcd-editor-tab',
+                pageIndex === activePageIndex ? 'lcd-editor-tab-active' : '',
+                selectedPageIdSet.has(page.id) ? 'lcd-editor-tab-selected' : '',
+                pageIndex === activePageIndex && selectedPageIdSet.has(page.id) ? 'lcd-editor-tab-active-selected' : '',
+                dragState.draggedPageId === page.id ? 'lcd-editor-tab-dragging' : '',
+                dragState.targetPageId === page.id && dragState.dropPosition === 'before' ? 'lcd-editor-tab-drop-before' : '',
+                dragState.targetPageId === page.id && dragState.dropPosition === 'after' ? 'lcd-editor-tab-drop-after' : '',
+              ].filter(Boolean).join(' ')}
+              onClick={(event) => onSelectPage(pageIndex, { shiftKey: event.shiftKey })}
+              onDragEnd={clearDragState}
+              onDragOver={(event) => handlePageChipDragOver(event, page.id)}
+              onDragStart={(event) => handlePageChipDragStart(event, page.id)}
+              onDrop={() => handlePageChipDrop(page.id)}
               disabled={isPlaybackLocked}
+              draggable={!isPlaybackLocked}
               role="tab"
+              aria-pressed={selectedPageIdSet.has(page.id)}
               aria-selected={pageIndex === activePageIndex}
             >
               {pageIndex + 1}
             </button>
           ))}
         </div>
+
+        {selectedPageIds.length > 1 ? (
+          <span className="lcd-editor-selection-summary">{`${selectedPageIds.length} selected`}</span>
+        ) : null}
 
         <div className="lcd-editor-actions">
           <Button
@@ -160,13 +263,23 @@ function LcdControlPanelComponent({
           >
             <ChevronRight />
           </Button>
-          <Button size="icon" variant="outline" onClick={() => onDuplicatePage(activePageIndex)} disabled={isPlaybackLocked}>
+          <Button
+            size="icon"
+            variant="outline"
+            onClick={onDuplicateSelectedPages}
+            disabled={isPlaybackLocked}
+          >
             <Copy />
           </Button>
           <Button size="icon" variant="outline" onClick={onAddPage} disabled={isPlaybackLocked}>
             <Plus />
           </Button>
-          <Button size="icon" variant="outline" onClick={() => onDeletePage(activePageIndex)} disabled={isPlaybackLocked || pages.length === 1}>
+          <Button
+            size="icon"
+            variant="outline"
+            onClick={onDeleteSelectedPages}
+            disabled={isPlaybackLocked || !canDeleteSelectedPages}
+          >
             <Trash2 />
           </Button>
         </div>
@@ -296,7 +409,8 @@ export const LcdControlPanel = memo(LcdControlPanelComponent, (previousProps, ne
     previousProps.isPlaybackLocked !== nextProps.isPlaybackLocked ||
     previousProps.canCloseEditor !== nextProps.canCloseEditor ||
     previousProps.presets !== nextProps.presets ||
-    previousProps.pages.length !== nextProps.pages.length
+    previousProps.pages.length !== nextProps.pages.length ||
+    previousProps.selectedPageIds.length !== nextProps.selectedPageIds.length
   ) {
     return false
   }
@@ -305,5 +419,6 @@ export const LcdControlPanel = memo(LcdControlPanelComponent, (previousProps, ne
     return false
   }
 
-  return previousProps.pages.every((page, index) => page === nextProps.pages[index])
+  return previousProps.selectedPageIds.every((pageId, pageIndex) => pageId === nextProps.selectedPageIds[pageIndex]) &&
+    previousProps.pages.every((page, index) => page === nextProps.pages[index])
 })
