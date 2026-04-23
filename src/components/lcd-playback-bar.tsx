@@ -1,5 +1,5 @@
 import { memo, useState } from 'react'
-import { Hourglass, Music2, Pause, Play, RotateCcw, SkipBack, SkipForward, Volume2 } from 'lucide-react'
+import { Hourglass, Pause, Play, RotateCcw, SkipBack, SkipForward, Volume2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 
@@ -7,7 +7,6 @@ type LcdPlaybackBarProps = {
   countdownRemaining: number | null
   countdownSeconds: 0 | 3 | 5 | 10
   hasAudio: boolean
-  isAudioPanelOpen: boolean
   isLooping: boolean
   isPlaybackLocked: boolean
   isPlaying: boolean
@@ -18,7 +17,6 @@ type LcdPlaybackBarProps = {
   onPlay: () => void
   onPrev: () => void
   onRestart: () => void
-  onToggleAudioPanel: () => void
   onToggleLoop: () => void
   onVolumeChange: (value: number) => void
 }
@@ -27,7 +25,6 @@ function LcdPlaybackBarComponent({
   countdownRemaining,
   countdownSeconds,
   hasAudio,
-  isAudioPanelOpen,
   isLooping,
   isPlaybackLocked,
   isPlaying,
@@ -38,7 +35,6 @@ function LcdPlaybackBarComponent({
   onPlay,
   onPrev,
   onRestart,
-  onToggleAudioPanel,
   onToggleLoop,
   onVolumeChange,
 }: LcdPlaybackBarProps) {
@@ -72,16 +68,6 @@ function LcdPlaybackBarComponent({
       </Button>
       <Button size="icon" variant="outline" onClick={onRestart} aria-label="Restart page" disabled={isPlaybackLocked}>
         <RotateCcw />
-      </Button>
-      <Button
-        size="icon"
-        variant={isAudioPanelOpen ? 'secondary' : 'outline'}
-        className={hasAudio ? 'lcd-playback-audio-button-loaded' : ''}
-        onClick={onToggleAudioPanel}
-        aria-label={isAudioPanelOpen ? 'Hide MP3 dialog' : 'Show MP3 dialog'}
-        aria-pressed={isAudioPanelOpen}
-      >
-        <Music2 />
       </Button>
       <Button
         size="sm"
@@ -160,7 +146,6 @@ export const LcdPlaybackBar = memo(LcdPlaybackBarComponent, (previousProps, next
     previousProps.countdownRemaining === nextProps.countdownRemaining &&
     previousProps.countdownSeconds === nextProps.countdownSeconds &&
     previousProps.hasAudio === nextProps.hasAudio &&
-    previousProps.isAudioPanelOpen === nextProps.isAudioPanelOpen &&
     previousProps.isLooping === nextProps.isLooping &&
     previousProps.isPlaybackLocked === nextProps.isPlaybackLocked &&
     previousProps.isPlaying === nextProps.isPlaying &&
