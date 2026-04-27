@@ -546,7 +546,7 @@ function renderPageModeEnum(model: ArduinoExportModel) {
   return `enum PageMode {\n${pageModes.join(',\n')}\n};`
 }
 
-function renderPageAnimationEnum(model: ArduinoExportModel) {
+function renderPageAnimationEnum() {
   return `enum PageAnimation {
   ANIMATION_REPLACE = 0,
   ANIMATION_TYPEWRITER = 1,
@@ -980,7 +980,7 @@ LiquidCrystal_I2C lcd(LCD_ADDRESS, SCREEN_COLS, SCREEN_ROWS);
 
 ${renderPageModeEnum(model)}
 
-${renderPageAnimationEnum(model)}
+${renderPageAnimationEnum()}
 
 struct PageConfig {
   uint8_t mode;

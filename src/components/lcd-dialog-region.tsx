@@ -90,10 +90,6 @@ function ExportPreviewDialogBody({ dialog, intentClassName }: ExportPreviewDialo
         dialog.inoExportOptions?.checked ?? false,
     )
 
-    useEffect(() => {
-        setIncludeCountdownInExport(dialog.inoExportOptions?.checked ?? false)
-    }, [dialog.id, dialog.inoExportOptions?.checked])
-
     const preview = dialog.inoExportOptions
         ? serializeProjectInoContent({
             ...dialog.inoExportOptions.document,
@@ -235,7 +231,7 @@ export function LcdDialogRegion({ activeDialog, onConfirm, onDismiss, onPromptSu
                     <PromptDialogForm key={activeDialog.id} dialog={activeDialog} onPromptSubmit={onPromptSubmit} />
                 ) : null}
                 {activeDialog.kind === 'export-preview' ? (
-                    <ExportPreviewDialogBody dialog={activeDialog} intentClassName={intentClassName} />
+                    <ExportPreviewDialogBody key={activeDialog.id} dialog={activeDialog} intentClassName={intentClassName} />
                 ) : null}
             </div>
         </Dialog>
