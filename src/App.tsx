@@ -6,6 +6,7 @@ import { LcdPreviewStage } from '@/components/lcd-preview-stage'
 import { useDialog } from '@/hooks/use-dialog'
 import { useLcdStudio } from '@/hooks/use-lcd-studio'
 import { downloadTextContentFile } from '@/lib/project-file'
+import { serializeProjectInoContent } from '@/lib/project-file'
 import { useProjectPersistence } from '@/hooks/use-project-persistence'
 import { useResponsiveEditorDock } from '@/hooks/use-responsive-editor-dock'
 import { useToast } from '@/hooks/use-toast'
@@ -108,6 +109,72 @@ function App() {
     createPreview: typeof createProjectJsonExportPreview,
   ) => {
     try {
+      if (exportType === 'INO') {
+        const projectDocument = await createSnapshot()
+        const exportPreviewData = {
+          content: serializeProjectInoContent(projectDocument),
+          fileName: `${projectDocument.projectName}.ino`,
+          mimeType: 'text/plain;charset=utf-8',
+        }
+
+        void exportPreview({
+          copyLabel: 'Copy code',
+          downloadLabel: 'Download',
+          fileName: exportPreviewData.fileName,
+          inoExportOptions: {
+            checked: projectDocument.includeCountdownInExport,
+            disabled: projectDocument.countdownSeconds === 0,
+            document: projectDocument,
+            onCheckedChange: playbackActions.setIncludeCountdownInExport,
+            onCopyPreview: async (preview) => {
+              try {
+                if (!navigator.clipboard) {
+                  throw new Error('Clipboard is not available in this browser')
+                }
+
+                await navigator.clipboard.writeText(preview)
+                showToast('INO copied to clipboard', {
+                  position: 'top-right',
+                  variant: 'success',
+                })
+              } catch (error) {
+                showToast(error instanceof Error ? error.message : 'Could not copy the INO export', {
+                  position: 'top-right',
+                  variant: 'error',
+                })
+              }
+            },
+            onDownloadPreview: async (preview) => {
+              try {
+                downloadTextContentFile(
+                  preview,
+                  exportPreviewData.fileName,
+                  exportPreviewData.mimeType,
+                )
+                showToast('INO downloaded', {
+                  position: 'top-right',
+                  variant: 'success',
+                })
+                dismissActiveDialog()
+              } catch (error) {
+                showToast(error instanceof Error ? error.message : 'Could not download the INO export', {
+                  position: 'top-right',
+                  variant: 'error',
+                })
+              }
+            },
+          },
+          onCopy: async () => {},
+          onDownload: async () => {},
+          preview: exportPreviewData.content,
+          title: exportPreviewData.fileName,
+        })
+
+        return {
+          ok: true,
+        }
+      }
+
       const exportPreviewData = await createPreview()
 
       void exportPreview({
@@ -164,7 +231,7 @@ function App() {
         message: error instanceof Error ? error.message : `Could not prepare the ${exportType} export`,
       }
     }
-  }, [dismissActiveDialog, exportPreview, showToast])
+  }, [createSnapshot, dismissActiveDialog, exportPreview, playbackActions.setIncludeCountdownInExport, showToast])
 
   const handleProjectExportJson = useCallback(async () => {
     return openExportPreviewDialog('JSON', createProjectJsonExportPreview)

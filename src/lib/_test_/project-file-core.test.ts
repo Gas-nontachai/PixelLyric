@@ -15,6 +15,7 @@ function createState(overrides: Partial<PixelLyricProjectState> = {}): PixelLyri
   return {
     audioTrack: null,
     countdownSeconds: 0,
+    includeCountdownInExport: false,
     pages: [
       {
         animation: 'replace',
@@ -36,6 +37,7 @@ function createDocument(overrides: Partial<PixelLyricProjectDocument> = {}): Pix
   return {
     audioTrack: null,
     countdownSeconds: 0,
+    includeCountdownInExport: false,
     format: 'pixelyric-project',
     pages: createState().pages,
     projectName: 'Demo Project',
@@ -65,6 +67,7 @@ describe('project-file core utilities', () => {
 
     expect(document.projectName).toBe('Demo Project')
     expect(document.audioTrack).toBeNull()
+    expect(document.includeCountdownInExport).toBe(false)
     expect(document.savedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/)
     expect(serialized).toContain('\n  "projectName": "Demo Project"')
   })
@@ -74,6 +77,7 @@ describe('project-file core utilities', () => {
 
     expect(state.projectName).toBe('Demo Project')
     expect(state.audioTrack).toBeNull()
+    expect(state.includeCountdownInExport).toBe(false)
     expect(state.pages).toHaveLength(1)
   })
 
@@ -88,6 +92,7 @@ describe('project-file core utilities', () => {
 
     expect(document.projectName).toBe('Untitled')
     expect(document.countdownSeconds).toBe(0)
+    expect(document.includeCountdownInExport).toBe(false)
     expect(document.savedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/)
     expect(document.pages).toHaveLength(2)
     expect(document.pages[0]).toMatchObject({

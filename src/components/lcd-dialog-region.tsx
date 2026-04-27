@@ -3,6 +3,7 @@ import { Copy, Download } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
+import { serializeProjectInoContent } from '@/lib/project-file'
 import { cn } from '@/lib/utils'
 import type { DialogItem, ExportPreviewDialogItem, PromptDialogItem } from '@/types'
 
@@ -85,23 +86,63 @@ function PromptDialogForm({ dialog, onPromptSubmit }: PromptDialogFormProps) {
 }
 
 function ExportPreviewDialogBody({ dialog, intentClassName }: ExportPreviewDialogBodyProps) {
+    const [includeCountdownInExport, setIncludeCountdownInExport] = useState(
+        dialog.inoExportOptions?.checked ?? false,
+    )
+
+    useEffect(() => {
+        setIncludeCountdownInExport(dialog.inoExportOptions?.checked ?? false)
+    }, [dialog.id, dialog.inoExportOptions?.checked])
+
+    const preview = dialog.inoExportOptions
+        ? serializeProjectInoContent({
+            ...dialog.inoExportOptions.document,
+            includeCountdownInExport,
+        })
+        : dialog.preview
+
     return (
         <div className="lcd-export-preview">
             <div className="lcd-export-preview-meta">
+                {dialog.inoExportOptions ? (
+                    <label className={`lcd-checkbox-field${dialog.inoExportOptions.disabled ? ' lcd-checkbox-field-disabled' : ''}`}>
+                        <input
+                            type="checkbox"
+                            checked={includeCountdownInExport}
+                            disabled={dialog.inoExportOptions.disabled}
+                            onChange={(event) => {
+                                const nextChecked = event.target.checked
+                                setIncludeCountdownInExport(nextChecked)
+                                dialog.inoExportOptions?.onCheckedChange(nextChecked)
+                            }}
+                        />
+                        <span>Add countdown to `.ino` export</span>
+                    </label>
+                ) : null}
                 <div className="lcd-export-preview-actions">
                     <Button variant="outline" onClick={() => {
+                        if (dialog.inoExportOptions) {
+                            void dialog.inoExportOptions.onCopyPreview(preview)
+                            return
+                        }
+
                         void dialog.onCopy()
                     }}>
                         <Copy />
                     </Button>
                     <Button className={cn('lcd-message-dialog-confirm', intentClassName)} onClick={() => {
+                        if (dialog.inoExportOptions) {
+                            void dialog.inoExportOptions.onDownloadPreview(preview)
+                            return
+                        }
+
                         void dialog.onDownload()
                     }}>
                         <Download />
                     </Button>
                 </div>
             </div>
-            <pre className="lcd-export-preview-surface">{dialog.preview}</pre>
+            <pre className="lcd-export-preview-surface">{preview}</pre>
         </div>
     )
 }

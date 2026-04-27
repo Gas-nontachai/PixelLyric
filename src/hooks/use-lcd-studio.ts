@@ -152,6 +152,7 @@ export function useLcdStudio() {
   })
   const [playback, setPlayback] = useState<PlaybackState>(() => createDefaultPlaybackState(true))
   const [countdownSeconds, setCountdownSeconds] = useState<CountdownOption>(0)
+  const [includeCountdownInExport, setIncludeCountdownInExport] = useState(false)
   const [countdownRemaining, setCountdownRemaining] = useState<number | null>(null)
 
   const playbackRef = useRef(playback)
@@ -921,6 +922,7 @@ export function useLcdStudio() {
     projectName: string
     screenType: ScreenPresetId
     countdownSeconds: CountdownOption
+    includeCountdownInExport: boolean
     pages: PageScript[]
     audioTrack: ProjectAudioTrack | null
     projectFileHandle?: ProjectFileHandle | null
@@ -950,6 +952,7 @@ export function useLcdStudio() {
     setPages(nextPages)
     setSelectedPageIds(nextPages[0] ? [nextPages[0].id] : [])
     setCountdownSeconds(nextProjectState.countdownSeconds)
+    setIncludeCountdownInExport(nextProjectState.includeCountdownInExport)
     setIsDirty(nextProjectState.isDirty ?? false)
     playbackRef.current = nextPlaybackState
     setPlayback(nextPlaybackState)
@@ -968,10 +971,11 @@ export function useLcdStudio() {
       projectName,
       screenType,
       countdownSeconds,
+      includeCountdownInExport,
       pages: pagesRef.current,
       audioTrack: audioTrackRef.current,
     })
-  }, [countdownSeconds, projectName, screenType])
+  }, [countdownSeconds, includeCountdownInExport, projectName, screenType])
 
   const loadProjectSnapshot = useCallback(async (
     document: PixelLyricProjectDocument,
@@ -1023,6 +1027,7 @@ export function useLcdStudio() {
         projectName: normalizedNextProjectName,
         screenType,
         countdownSeconds,
+        includeCountdownInExport,
         pages: pagesRef.current,
         audioTrack: audioTrackRef.current,
       })
@@ -1057,7 +1062,7 @@ export function useLcdStudio() {
         message: error instanceof Error ? error.message : 'Could not save the project',
       }
     }
-  }, [countdownSeconds, screenType])
+  }, [countdownSeconds, includeCountdownInExport, screenType])
 
   const saveProject = useCallback(async (): Promise<ProjectActionResult> => {
     const currentFileHandle = currentProjectFileHandleRef.current
@@ -1129,6 +1134,7 @@ export function useLcdStudio() {
       projectName: nextProjectName,
       screenType: '16x2',
       countdownSeconds: 0,
+      includeCountdownInExport: false,
       pages: createDefaultPages(getPresetById('16x2').rows),
       audioTrack: null,
       projectFileHandle: null,
@@ -1447,6 +1453,10 @@ export function useLcdStudio() {
       setCountdownRemaining(null)
       setIsDirty(true)
     },
+    setIncludeCountdownInExport: (nextValue: boolean) => {
+      setIncludeCountdownInExport(nextValue)
+      setIsDirty(true)
+    },
   }
 
   const activePage = pages[playback.activePageIndex] ?? pages[0]
@@ -1467,6 +1477,7 @@ export function useLcdStudio() {
     isDirty,
     screenType,
     countdownSeconds,
+    includeCountdownInExport,
     pages,
     audioTrack: audioTrack
       ? {
@@ -1493,6 +1504,7 @@ export function useLcdStudio() {
     isDirty,
     countdownRemaining,
     countdownSeconds,
+    includeCountdownInExport,
     projectAutosaveKey,
     audio: {
       track: audioTrack,

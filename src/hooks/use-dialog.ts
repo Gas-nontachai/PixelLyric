@@ -96,6 +96,7 @@ function createExportPreviewDialog(options: ExportPreviewDialogOptions): ExportP
     downloadLabel: options.downloadLabel ?? 'Download',
     fileName: options.fileName,
     id: crypto.randomUUID(),
+    inoExportOptions: options.inoExportOptions,
     intent: options.intent ?? 'default',
     kind: 'export-preview',
     onCopy: options.onCopy,

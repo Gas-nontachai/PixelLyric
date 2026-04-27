@@ -18,11 +18,13 @@ function createPage(overrides: Partial<PageScript> = {}): PageScript {
 
 function createDocument({
   countdownSeconds = 0,
+  includeCountdownInExport = false,
   pages = [createPage()],
   projectName = 'Demo Sketch',
   screenType = '16x2',
 }: {
   countdownSeconds?: PixelLyricProjectDocument['countdownSeconds']
+  includeCountdownInExport?: PixelLyricProjectDocument['includeCountdownInExport']
   pages?: PageScript[]
   projectName?: string
   screenType?: ScreenPresetId
@@ -30,6 +32,7 @@ function createDocument({
   return {
     audioTrack: null,
     countdownSeconds,
+    includeCountdownInExport,
     format: 'pixelyric-project',
     pages,
     projectName,
@@ -98,9 +101,14 @@ describe('serializeProjectInoContent', () => {
     }))
 
     expect(content).toContain('ANIMATION_TYPEWRITER')
+    expect(content).toContain('ANIMATION_SCROLL_LEFT = 2')
+    expect(content).toContain('ANIMATION_SCROLL_RIGHT = 3')
     expect(content).toContain('renderTypewriterPage(pageIndex, durationMs);')
     expect(content).toContain('String repeatSpaces(uint8_t count)')
     expect(content).toContain('struct PageConfig')
+    expect(content).toContain('const unsigned long pageStartMs = millis();')
+    expect(content).toContain('uint16_t targetCharacters = (elapsedMs * totalCharacters) / durationMs;')
+    expect(content).not.toContain('const unsigned long stepDelayMs = max(25UL, durationMs / totalCharacters);')
     expect(content).not.toContain('const unsigned long pageDurations[PAGE_COUNT]')
     expect(content).not.toContain('renderScrollPage')
     expect(content).not.toContain('buildScrollSource')
@@ -121,10 +129,16 @@ describe('serializeProjectInoContent', () => {
     }))
 
     expect(content).toContain('PAGE_MODE_SCROLL = 1')
+    expect(content).toContain('ANIMATION_TYPEWRITER = 1')
+    expect(content).toContain('ANIMATION_SCROLL_LEFT = 2')
     expect(content).toContain('ANIMATION_SCROLL_RIGHT = 3')
     expect(content).toContain('renderScrollPage(pageIndex, page.animation == ANIMATION_SCROLL_RIGHT, durationMs);')
     expect(content).toContain('String buildScrollSource(const String& rowText)')
     expect(content).toContain('struct PageConfig')
+    expect(content).toContain('const unsigned long pageStartMs = millis();')
+    expect(content).toContain('uint16_t targetStep = (elapsedMs * maxSteps) / durationMs;')
+    expect(content).not.toContain('const unsigned long stepDelayMs = max(40UL, durationMs / maxSteps);')
+    expect(content).not.toContain('for (uint16_t stepIndex = 0; stepIndex < maxSteps; stepIndex++) {\n    lcd.clear();')
     expect(content).not.toContain('const unsigned long pageDurations[PAGE_COUNT]')
     expect(content).not.toContain('renderTypewriterPage')
   })
@@ -132,6 +146,7 @@ describe('serializeProjectInoContent', () => {
   it('exports countdown and mixed animation helpers only when needed', () => {
     const content = serializeProjectInoContent(createDocument({
       countdownSeconds: 5,
+      includeCountdownInExport: true,
       pages: [
         createPage({
           animation: 'typewriter',
@@ -155,13 +170,31 @@ describe('serializeProjectInoContent', () => {
     expect(content).toContain('const uint8_t START_COUNTDOWN_SECONDS = 5;')
     expect(content).toContain('ANIMATION_TYPEWRITER = 1')
     expect(content).toContain('ANIMATION_SCROLL_LEFT = 2')
+    expect(content).toContain('ANIMATION_SCROLL_RIGHT = 3')
     expect(content).toContain('PAGE_MODE_SCROLL = 1')
     expect(content).toContain('renderScrollPage(pageIndex, animation == ANIMATION_SCROLL_RIGHT, durationMs);')
     expect(content).toContain('renderTypewriterPage(pageIndex, durationMs);')
     expect(content).toContain('void runCountdown()')
+    expect(content).toContain('for (int seconds = START_COUNTDOWN_SECONDS; seconds > 0; seconds--) {')
+    expect(content).toContain('lcd.print("Starting in");')
+    expect(content).toContain('lcd.print(seconds);')
     expect(content).toContain('runCountdown();')
     expect(content).toContain('struct PageConfig')
+    expect(content).toContain('renderStaticPage(pageIndex);')
+    expect(content).toContain('const unsigned long remainingMs = durationMs - min(durationMs, millis() - pageStartMs);')
     expect(content).not.toContain('const unsigned long pageDurations[PAGE_COUNT]')
+    expect(content).not.toContain('max(25UL')
+    expect(content).not.toContain('max(40UL')
+  })
+
+  it('skips countdown Arduino code when export toggle is off', () => {
+    const content = serializeProjectInoContent(createDocument({
+      countdownSeconds: 5,
+    }))
+
+    expect(content).not.toContain('const uint8_t START_COUNTDOWN_SECONDS')
+    expect(content).not.toContain('void runCountdown()')
+    expect(content).not.toContain('runCountdown();')
   })
 
   it('preserves string escaping in ultra-simple static exports', () => {
