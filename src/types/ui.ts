@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import type { PixelLyricProjectDocument } from './project'
 
 export type ToastPosition =
   | 'top-left'
@@ -49,6 +50,14 @@ export type ExportPreviewDialogOptions = BaseDialogOptions & {
   copyLabel?: string
   downloadLabel?: string
   fileName: string
+  inoExportOptions?: {
+    checked: boolean
+    disabled: boolean
+    document: PixelLyricProjectDocument
+    onCheckedChange: (checked: boolean) => void
+    onCopyPreview: (preview: string) => void | Promise<void>
+    onDownloadPreview: (preview: string) => void | Promise<void>
+  }
   onCopy: () => void | Promise<void>
   onDownload: () => void | Promise<void>
   preview: string
@@ -81,6 +90,14 @@ export type ExportPreviewDialogItem = BaseDialogItem & {
   copyLabel: string
   downloadLabel: string
   fileName: string
+  inoExportOptions?: {
+    checked: boolean
+    disabled: boolean
+    document: PixelLyricProjectDocument
+    onCheckedChange: (checked: boolean) => void
+    onCopyPreview: (preview: string) => void | Promise<void>
+    onDownloadPreview: (preview: string) => void | Promise<void>
+  }
   kind: 'export-preview'
   onCopy: () => void | Promise<void>
   onDownload: () => void | Promise<void>

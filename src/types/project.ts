@@ -21,6 +21,7 @@ export type PixelLyricProjectDocument = {
   savedAt: string
   screenType: ScreenPresetId
   countdownSeconds: CountdownOption
+  includeCountdownInExport: boolean
   pages: PageScript[]
   audioTrack: SerializedProjectAudioTrack | null
 }
@@ -29,6 +30,7 @@ export type PixelLyricProjectState = {
   projectName: string
   screenType: ScreenPresetId
   countdownSeconds: CountdownOption
+  includeCountdownInExport: boolean
   pages: PageScript[]
   audioTrack: ProjectAudioTrack | null
 }

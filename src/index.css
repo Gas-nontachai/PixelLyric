@@ -1504,6 +1504,35 @@
   gap: 8px;
 }
 
+.lcd-checkbox-field {
+  display: flex;
+  gap: 6px;
+  padding: 14px 16px; 
+}
+
+.lcd-checkbox-field input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: #305f3a;
+}
+
+.lcd-checkbox-field > span {
+  font-size: 0.94rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.lcd-checkbox-field small {
+  color: var(--muted-foreground);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.lcd-checkbox-field-disabled {
+  opacity: 0.7;
+}
+
 .lcd-field span,
 .lcd-field-row small {
   font-weight: 600;

@@ -1,5 +1,5 @@
 import { type ChangeEvent, type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react'
-import { FileCog, LoaderCircle, Pencil } from 'lucide-react'
+import { FileCog, LoaderCircle, Music2, Pencil } from 'lucide-react'
 
 import { LcdAudioPanel } from '@/components/lcd-audio-panel'
 import { LcdDisplay } from '@/components/lcd-display'
@@ -496,6 +496,17 @@ export function LcdPreviewStage({
             />
             <Button
               size="icon"
+              variant={isAudioPanelOpen ? 'secondary' : 'outline'}
+              className={`lcd-toggle-button${audio.track ? ' lcd-playback-audio-button-loaded' : ''}`}
+              onClick={handleToggleAudioDialog}
+              aria-label={isAudioPanelOpen ? 'Hide MP3 dialog' : 'Show MP3 dialog'}
+              aria-pressed={isAudioPanelOpen}
+              disabled={isPlaybackLocked}
+            >
+              <Music2 />
+            </Button>
+            <Button
+              size="icon"
               variant="outline"
               className="lcd-toggle-button"
               onClick={onToggleEditor}
@@ -527,7 +538,6 @@ export function LcdPreviewStage({
           countdownRemaining={countdownRemaining}
           countdownSeconds={countdownSeconds}
           hasAudio={Boolean(audio.track)}
-          isAudioPanelOpen={isAudioPanelOpen}
           isLooping={isLooping}
           isPlaybackLocked={isPlaybackLocked}
           isPlaying={isPlaying}
@@ -537,7 +547,6 @@ export function LcdPreviewStage({
           onPlay={onPlay}
           onPrev={onPrev}
           onRestart={onRestart}
-          onToggleAudioPanel={handleToggleAudioDialog}
           onToggleLoop={onToggleLoop}
           onCountdownCycle={onCountdownCycle}
           onVolumeChange={(value) => {

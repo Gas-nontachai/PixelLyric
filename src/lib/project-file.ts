@@ -245,6 +245,7 @@ function normalizeProjectDocument(value: unknown): PixelLyricProjectDocument {
 
   const preset = getPresetById(value.screenType)
   const countdownSeconds = isCountdownOption(value.countdownSeconds) ? value.countdownSeconds : 0
+  const includeCountdownInExport = value.includeCountdownInExport === true
   const rawPages = Array.isArray(value.pages) ? value.pages : []
   const pages = rawPages.length > 0
     ? rawPages.map((page) => normalizeSerializedPage(page, preset.columns, preset.rows))
@@ -296,6 +297,7 @@ function normalizeProjectDocument(value: unknown): PixelLyricProjectDocument {
     savedAt: typeof value.savedAt === 'string' ? value.savedAt : new Date().toISOString(),
     screenType: value.screenType,
     countdownSeconds,
+    includeCountdownInExport,
     pages,
     audioTrack,
   }
@@ -309,6 +311,7 @@ export async function createProjectDocument(state: PixelLyricProjectState): Prom
     savedAt: new Date().toISOString(),
     screenType: state.screenType,
     countdownSeconds: state.countdownSeconds,
+    includeCountdownInExport: state.includeCountdownInExport,
     pages: state.pages,
     audioTrack: state.audioTrack ? await serializeAudioTrack(state.audioTrack) : null,
   }
@@ -342,6 +345,7 @@ export async function projectDocumentToState(
     projectName: normalizedDocument.projectName,
     screenType: normalizedDocument.screenType,
     countdownSeconds: normalizedDocument.countdownSeconds,
+    includeCountdownInExport: normalizedDocument.includeCountdownInExport,
     pages: normalizedDocument.pages,
     audioTrack,
   }
@@ -385,6 +389,7 @@ type ArduinoExportPage = {
 
 type ArduinoExportModel = {
   countdownSeconds: CountdownOption
+  includeCountdownInExport: boolean
   pageCount: number
   pages: ArduinoExportPage[]
   projectName: string
@@ -454,12 +459,13 @@ function buildArduinoExportModel(document: PixelLyricProjectDocument): ArduinoEx
   const usedAnimations = Array.from(new Set(document.pages.map((page) => page.animation)))
   const usesScroll = usedModes.includes('scroll')
   const usesTypewriter = usedAnimations.includes('typewriter')
-  const usesCountdown = document.countdownSeconds > 0
+  const usesCountdown = document.countdownSeconds > 0 && document.includeCountdownInExport
   const usesOnlyStaticReplace = !usesScroll && !usesTypewriter && usedAnimations.every((animation) => animation === 'replace')
   const usesUltraSimpleStaticTemplate = usesOnlyStaticReplace && !usesCountdown
 
   return {
     countdownSeconds: document.countdownSeconds,
+    includeCountdownInExport: document.includeCountdownInExport,
     pageCount: document.pages.length,
     pages: document.pages.map((page, pageIndex) => ({
       animation: page.animation,
@@ -540,22 +546,13 @@ function renderPageModeEnum(model: ArduinoExportModel) {
   return `enum PageMode {\n${pageModes.join(',\n')}\n};`
 }
 
-function renderPageAnimationEnum(model: ArduinoExportModel) {
-  const animationLines = ['  ANIMATION_REPLACE = 0']
-
-  if (model.usedAnimations.includes('typewriter')) {
-    animationLines.push('  ANIMATION_TYPEWRITER = 1')
-  }
-
-  if (model.usedAnimations.includes('scroll-left')) {
-    animationLines.push('  ANIMATION_SCROLL_LEFT = 2')
-  }
-
-  if (model.usedAnimations.includes('scroll-right')) {
-    animationLines.push('  ANIMATION_SCROLL_RIGHT = 3')
-  }
-
-  return `enum PageAnimation {\n${animationLines.join(',\n')}\n};`
+function renderPageAnimationEnum() {
+  return `enum PageAnimation {
+  ANIMATION_REPLACE = 0,
+  ANIMATION_TYPEWRITER = 1,
+  ANIMATION_SCROLL_LEFT = 2,
+  ANIMATION_SCROLL_RIGHT = 3
+};`
 }
 
 function renderRepeatSpacesHelper() {
@@ -634,26 +631,60 @@ function renderTypewriterPageHelper() {
     return;
   }
 
-  const unsigned long stepDelayMs = max(25UL, durationMs / totalCharacters);
   lcd.clear();
+  const unsigned long pageStartMs = millis();
+  uint16_t renderedCharacters = 0;
 
-  for (uint16_t visibleCharacters = 1; visibleCharacters <= totalCharacters; visibleCharacters++) {
-    String visibleText = flattened.substring(0, visibleCharacters);
-    visibleText += repeatSpaces(totalCharacters - visibleCharacters);
+  if (durationMs < totalCharacters) {
+    renderStaticPage(pageIndex);
+    const unsigned long remainingMs = durationMs - min(durationMs, millis() - pageStartMs);
 
-    for (uint8_t rowIndex = 0; rowIndex < SCREEN_ROWS; rowIndex++) {
-      const uint16_t startIndex = rowIndex * SCREEN_COLS;
-      lcd.setCursor(0, rowIndex);
-      lcd.print(visibleText.substring(startIndex, startIndex + SCREEN_COLS));
+    if (remainingMs > 0) {
+      delay(remainingMs);
     }
 
-    delay(stepDelayMs);
+    return;
   }
 
-  const unsigned long consumedMs = stepDelayMs * totalCharacters;
+  while (renderedCharacters < totalCharacters) {
+    const unsigned long elapsedMs = millis() - pageStartMs;
 
-  if (consumedMs < durationMs) {
-    delay(durationMs - consumedMs);
+    if (elapsedMs >= durationMs) {
+      break;
+    }
+
+    uint16_t targetCharacters = (elapsedMs * totalCharacters) / durationMs;
+
+    if (targetCharacters > totalCharacters) {
+      targetCharacters = totalCharacters;
+    }
+
+    if (targetCharacters == renderedCharacters) {
+      delay(1);
+      continue;
+    }
+
+    while (renderedCharacters < targetCharacters) {
+      const uint8_t rowIndex = renderedCharacters / SCREEN_COLS;
+      const uint8_t columnIndex = renderedCharacters % SCREEN_COLS;
+      lcd.setCursor(columnIndex, rowIndex);
+      lcd.print(flattened.charAt(renderedCharacters));
+      renderedCharacters++;
+    }
+  }
+
+  while (renderedCharacters < totalCharacters) {
+    const uint8_t rowIndex = renderedCharacters / SCREEN_COLS;
+    const uint8_t columnIndex = renderedCharacters % SCREEN_COLS;
+    lcd.setCursor(columnIndex, rowIndex);
+    lcd.print(flattened.charAt(renderedCharacters));
+    renderedCharacters++;
+  }
+
+  const unsigned long remainingMs = durationMs - min(durationMs, millis() - pageStartMs);
+
+  if (remainingMs > 0) {
+    delay(remainingMs);
   }
 }`
 }
@@ -677,30 +708,78 @@ function renderScrollPageHelper() {
     maxSteps = rowSteps > maxSteps ? rowSteps : maxSteps;
   }
 
-  const unsigned long stepDelayMs = max(40UL, durationMs / maxSteps);
+  lcd.clear();
+  const unsigned long pageStartMs = millis();
 
-  for (uint16_t stepIndex = 0; stepIndex < maxSteps; stepIndex++) {
-    lcd.clear();
+  if (durationMs < maxSteps) {
+    for (uint8_t rowIndex = 0; rowIndex < SCREEN_ROWS; rowIndex++) {
+      const uint16_t rowLength = scrollSources[rowIndex].length();
+      const uint16_t rowSteps = rowLength >= SCREEN_COLS ? rowLength - SCREEN_COLS + 1 : 1;
+      const uint16_t windowStart = scrollRight ? 0 : rowSteps - 1;
+
+      lcd.setCursor(0, rowIndex);
+      lcd.print(scrollSources[rowIndex].substring(windowStart, windowStart + SCREEN_COLS));
+    }
+
+    delay(durationMs);
+    return;
+  }
+
+  uint16_t renderedStep = 0;
+  bool hasRenderedStep = false;
+
+  while (renderedStep < maxSteps) {
+    const unsigned long elapsedMs = millis() - pageStartMs;
+
+    if (elapsedMs >= durationMs) {
+      break;
+    }
+
+    uint16_t targetStep = (elapsedMs * maxSteps) / durationMs;
+
+    if (targetStep > maxSteps - 1) {
+      targetStep = maxSteps - 1;
+    }
+
+    if (targetStep == renderedStep && hasRenderedStep) {
+      delay(1);
+      continue;
+    }
+
+    renderedStep = targetStep;
+    hasRenderedStep = true;
 
     for (uint8_t rowIndex = 0; rowIndex < SCREEN_ROWS; rowIndex++) {
       const uint16_t rowLength = scrollSources[rowIndex].length();
       const uint16_t rowSteps = rowLength >= SCREEN_COLS ? rowLength - SCREEN_COLS + 1 : 1;
       const uint16_t scaledStep = rowSteps <= 1 || maxSteps <= 1
         ? 0
-        : (stepIndex * (rowSteps - 1)) / (maxSteps - 1);
+        : (renderedStep * (rowSteps - 1)) / (maxSteps - 1);
       const uint16_t windowStart = scrollRight ? (rowSteps - 1) - scaledStep : scaledStep;
 
       lcd.setCursor(0, rowIndex);
       lcd.print(scrollSources[rowIndex].substring(windowStart, windowStart + SCREEN_COLS));
     }
-
-    delay(stepDelayMs);
   }
 
-  const unsigned long consumedMs = stepDelayMs * maxSteps;
+  const uint16_t finalStep = maxSteps - 1;
 
-  if (consumedMs < durationMs) {
-    delay(durationMs - consumedMs);
+  for (uint8_t rowIndex = 0; rowIndex < SCREEN_ROWS; rowIndex++) {
+    const uint16_t rowLength = scrollSources[rowIndex].length();
+    const uint16_t rowSteps = rowLength >= SCREEN_COLS ? rowLength - SCREEN_COLS + 1 : 1;
+    const uint16_t scaledStep = rowSteps <= 1 || maxSteps <= 1
+      ? 0
+      : (finalStep * (rowSteps - 1)) / (maxSteps - 1);
+    const uint16_t windowStart = scrollRight ? (rowSteps - 1) - scaledStep : scaledStep;
+
+    lcd.setCursor(0, rowIndex);
+    lcd.print(scrollSources[rowIndex].substring(windowStart, windowStart + SCREEN_COLS));
+  }
+
+  const unsigned long remainingMs = durationMs - min(durationMs, millis() - pageStartMs);
+
+  if (remainingMs > 0) {
+    delay(remainingMs);
   }
 }`
 }
@@ -901,7 +980,7 @@ LiquidCrystal_I2C lcd(LCD_ADDRESS, SCREEN_COLS, SCREEN_ROWS);
 
 ${renderPageModeEnum(model)}
 
-${renderPageAnimationEnum(model)}
+${renderPageAnimationEnum()}
 
 struct PageConfig {
   uint8_t mode;
