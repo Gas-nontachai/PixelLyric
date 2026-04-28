@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { CUSTOM_EMOJI_GROUPS, CUSTOM_EMOJI_ITEMS } from '@/configs/custom-emoji'
 import { DEFAULT_DURATION_MS, DEFAULT_TEXT } from '@/configs/lcd'
 import { FONT } from '@/configs/lcd-font'
 import { SPECIAL_TEXT_GROUPS, SPECIAL_TEXT_ITEMS } from '@/configs/special-text'
@@ -203,6 +204,31 @@ describe('lcd utilities', () => {
     const fontMap = FONT as Record<string, unknown>
 
     for (const item of SPECIAL_TEXT_ITEMS) {
+      expect(fontMap[item.display]).toBeDefined()
+    }
+  })
+
+  it('keeps the custom emoji registry valid and grouped for the picker', () => {
+    const displays = CUSTOM_EMOJI_ITEMS.map((item) => item.display)
+    const specialDisplays = new Set(SPECIAL_TEXT_ITEMS.map((item) => item.display))
+    const groupedItems = CUSTOM_EMOJI_GROUPS.flatMap((group) => group.items)
+
+    expect(new Set(displays).size).toBe(displays.length)
+    expect(displays.some((display) => specialDisplays.has(display))).toBe(false)
+    expect(groupedItems).toEqual(CUSTOM_EMOJI_ITEMS)
+
+    for (const item of CUSTOM_EMOJI_ITEMS) {
+      expect(item.id).toBeTruthy()
+      expect(item.display).toHaveLength(1)
+      expect(item.glyph).toHaveLength(8)
+      expect(item.glyph.every((row) => row.length === 5)).toBe(true)
+    }
+  })
+
+  it('includes preview glyphs for every custom emoji character', () => {
+    const fontMap = FONT as Record<string, unknown>
+
+    for (const item of CUSTOM_EMOJI_ITEMS) {
       expect(fontMap[item.display]).toBeDefined()
     }
   })

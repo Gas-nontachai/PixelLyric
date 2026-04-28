@@ -19,10 +19,16 @@ import {
   PAGE_MODE_OPTIONS,
   SCROLL_ANIMATION_OPTIONS,
 } from '@/configs/lcd'
-import { SPECIAL_TEXT_GROUPS } from '@/configs/special-text'
+import {
+  CUSTOM_EMOJI_GROUPS,
+  CUSTOM_EMOJI_LIMIT,
+  getCustomEmojiItem,
+} from '@/configs/custom-emoji'
+import { getSpecialTextItem, SPECIAL_TEXT_GROUPS } from '@/configs/special-text'
 import { Button } from '@/components/ui/button'
 import {
   formatDurationInput,
+  normalizePageText,
 } from '@/lib/lcd'
 import type {
   DurationUnit,
@@ -72,6 +78,7 @@ type LcdControlPanelProps = {
 function LcdControlPanelComponent({
   presets,
   selectedScreenType,
+  columns,
   rows,
   pages,
   selectedPageIds,
@@ -117,6 +124,7 @@ function LcdControlPanelComponent({
   const beforeDropRectsRef = useRef<Map<string, DOMRect> | null>(null)
   const recentlyDroppedTimeoutRef = useRef<number | null>(null)
   const [specialTextPanelState, setSpecialTextPanelState] = useState<'closed' | 'open' | 'closing'>('closed')
+  const [specialTextTab, setSpecialTextTab] = useState<'chars' | 'emoji'>('chars')
   const isSpecialTextOpen = specialTextPanelState === 'open'
   const isSpecialTextPanelVisible = specialTextPanelState !== 'closed'
   const recentlyDroppedPageIdSet = useMemo(() => (
@@ -166,14 +174,44 @@ function LcdControlPanelComponent({
     setSpecialTextPanelState((currentState) => (currentState === 'open' ? 'closing' : 'open'))
   }
 
-  const insertSpecialText = (display: string) => {
+  const getUniqueCustomGlyphCount = (value: string) => {
+    const customGlyphDisplays = new Set<string>()
+
+    for (const character of Array.from(value)) {
+      const customEmojiItem = getCustomEmojiItem(character)
+      const specialTextItem = getSpecialTextItem(character)
+
+      if (customEmojiItem) {
+        customGlyphDisplays.add(customEmojiItem.display)
+      } else if (specialTextItem && specialTextItem.code >= 0 && specialTextItem.code <= 7) {
+        customGlyphDisplays.add(specialTextItem.display)
+      }
+    }
+
+    return customGlyphDisplays.size
+  }
+
+  const insertSpecialText = (display: string, options: { isEmoji?: boolean } = {}) => {
     const textarea = pageTextAreaRef.current
     const selectionStart = textarea?.selectionStart ?? activePage.text.length
     const selectionEnd = textarea?.selectionEnd ?? selectionStart
     const nextText = `${activePage.text.slice(0, selectionStart)}${display}${activePage.text.slice(selectionEnd)}`
+    const normalizedNextText = normalizePageText(nextText, columns, rows)
     const nextCursorPosition = selectionStart + display.length
 
-    onPageTextValueChange(activePageIndex, nextText)
+    if (
+      options.isEmoji &&
+      !activePage.text.includes(display) &&
+      getUniqueCustomGlyphCount(normalizedNextText) > CUSTOM_EMOJI_LIMIT
+    ) {
+      onShowToast(`LCD custom emoji limit is ${CUSTOM_EMOJI_LIMIT} per page`, {
+        position: 'top-right',
+        variant: 'error',
+      })
+      return
+    }
+
+    onPageTextValueChange(activePageIndex, normalizedNextText)
 
     window.requestAnimationFrame(() => {
       pageTextAreaRef.current?.focus()
@@ -595,26 +633,69 @@ function LcdControlPanelComponent({
                     }`}
                     aria-label="Special text"
                   >
-                    {SPECIAL_TEXT_GROUPS.map((group) => (
-                      <div key={group.label} className="lcd-special-text-group">
-                        <span className="lcd-special-text-group-label">{group.label}</span>
-                        <div className="lcd-special-text-grid">
-                          {group.items.map((item) => (
-                            <button
-                              key={`${group.label}-${item.label}`}
-                              type="button"
-                              className="lcd-special-text-item"
-                              onClick={() => insertSpecialText(item.display)}
-                              disabled={isPlaybackLocked}
-                              title={`${item.label} / code ${item.code}`}
-                              aria-label={`${item.label}, code ${item.code}`}
-                            >
-                              {item.display}
-                            </button>
-                          ))}
+                    <div className="lcd-special-text-tabs" role="tablist" aria-label="Special text modes">
+                      <button
+                        type="button"
+                        className={`lcd-special-text-tab${specialTextTab === 'chars' ? ' lcd-special-text-tab-active' : ''}`}
+                        onClick={() => setSpecialTextTab('chars')}
+                        role="tab"
+                        aria-selected={specialTextTab === 'chars'}
+                      >
+                        Chars
+                      </button>
+                      <button
+                        type="button"
+                        className={`lcd-special-text-tab${specialTextTab === 'emoji' ? ' lcd-special-text-tab-active' : ''}`}
+                        onClick={() => setSpecialTextTab('emoji')}
+                        role="tab"
+                        aria-selected={specialTextTab === 'emoji'}
+                      >
+                        Emoji
+                      </button>
+                    </div>
+                    {specialTextTab === 'chars' ? (
+                      SPECIAL_TEXT_GROUPS.map((group) => (
+                        <div key={group.label} className="lcd-special-text-group">
+                          <span className="lcd-special-text-group-label">{group.label}</span>
+                          <div className="lcd-special-text-grid">
+                            {group.items.map((item) => (
+                              <button
+                                key={`${group.label}-${item.label}`}
+                                type="button"
+                                className="lcd-special-text-item"
+                                onClick={() => insertSpecialText(item.display)}
+                                disabled={isPlaybackLocked}
+                                title={`${item.label} / code ${item.code}`}
+                                aria-label={`${item.label}, code ${item.code}`}
+                              >
+                                {item.display}
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))
+                    ) : (
+                      CUSTOM_EMOJI_GROUPS.map((group) => (
+                        <div key={group.label} className="lcd-special-text-group">
+                          <span className="lcd-special-text-group-label">{group.label}</span>
+                          <div className="lcd-special-text-grid">
+                            {group.items.map((item) => (
+                              <button
+                                key={`${group.label}-${item.label}`}
+                                type="button"
+                                className="lcd-special-text-item"
+                                onClick={() => insertSpecialText(item.display, { isEmoji: true })}
+                                disabled={isPlaybackLocked}
+                                title={item.label}
+                                aria-label={item.label}
+                              >
+                                {item.display}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 ) : null}
               </span>

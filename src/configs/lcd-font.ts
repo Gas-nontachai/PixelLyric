@@ -1,5 +1,6 @@
 // Full 5x8 LCD font (A-Z, a-z, 0-9 + space)
 
+import { CUSTOM_EMOJI_GLYPHS } from '@/configs/custom-emoji'
 import { SPECIAL_TEXT_GLYPHS } from '@/configs/special-text'
 
 export type PixelChar = number[][]
@@ -135,5 +136,6 @@ export const FONT = {
   ...FONT_SYMBOL,
   ...FONT_SYMBOL_BASELINE,
   ...SPECIAL_TEXT_GLYPHS,
+  ...CUSTOM_EMOJI_GLYPHS,
   ' ': EMPTY,
 }

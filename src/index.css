@@ -1705,6 +1705,33 @@
   animation: lcd-special-text-popover-out 140ms ease-in both;
 }
 
+.lcd-special-text-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  border-radius: 14px;
+  background: rgba(216, 235, 204, 0.62);
+  padding: 4px;
+}
+
+.lcd-special-text-tab {
+  min-width: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 8px 10px;
+}
+
+.lcd-special-text-tab-active {
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--foreground);
+  box-shadow: 0 4px 12px rgba(14, 51, 24, 0.08);
+}
+
 .lcd-special-text-group {
   display: grid;
   gap: 8px;
