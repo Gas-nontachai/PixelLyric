@@ -753,6 +753,12 @@ export function useLcdStudio() {
     setIsDirty(true)
   }
 
+  const handlePageTextValueChange = (pageIndex: number, value: string) => {
+    const nextText = normalizePageText(value, preset.columns, preset.rows)
+    updatePage(pageIndex, (page) => ({ ...page, text: nextText }))
+    setIsDirty(true)
+  }
+
   const handleRowTextChange = (pageIndex: number, rowIndex: number, value: string) => {
     updatePage(pageIndex, (page) => ({
       ...page,
@@ -1534,6 +1540,7 @@ export function useLcdStudio() {
       handlePageModeChange,
       handlePageAnimationChange,
       handlePageTextChange,
+      handlePageTextValueChange,
       handleRowTextChange,
       handleDurationValueChange,
       handleDurationUnitChange,

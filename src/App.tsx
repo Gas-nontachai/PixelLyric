@@ -404,6 +404,7 @@ function App() {
             onPageModeChange={editorActions.handlePageModeChange}
             onPageAnimationChange={editorActions.handlePageAnimationChange}
             onPageTextChange={editorActions.handlePageTextChange}
+            onPageTextValueChange={editorActions.handlePageTextValueChange}
             onRowTextChange={editorActions.handleRowTextChange}
             onDurationValueChange={editorActions.handleDurationValueChange}
             onDurationUnitChange={editorActions.handleDurationUnitChange}
