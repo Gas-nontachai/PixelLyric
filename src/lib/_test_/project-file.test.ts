@@ -225,8 +225,35 @@ describe('serializeProjectInoContent', () => {
 
     expect(content).toContain('const uint8_t pageLines[PAGE_COUNT][SCREEN_ROWS][MAX_LINE_BYTES]')
     expect(content).toContain('{ 3, 126, 255')
+    expect(content).toContain('// ♥ (heart) -> lcd.write((uint8_t)3); custom glyph loaded below')
+    expect(content).toContain('// → (arrow_right) -> lcd.write((uint8_t)126); LCD ROM byte')
+    expect(content).toContain('byte CUSTOM_GLYPH_HEART[8]')
+    expect(content).toContain('lcd.createChar(3, CUSTOM_GLYPH_HEART);')
+    expect(content).toContain('loadPageCustomCharacters(pageIndex);')
     expect(content).toContain('lcd.write((uint8_t)getPageLineByte')
     expect(content).not.toContain('lcd.print(fitRow(String(pageLines[pageIndex][rowIndex])))')
     expect(content).not.toContain('"♥→█"')
+  })
+
+  it('exports custom emoji with page-local CGRAM slots', () => {
+    const content = serializeProjectInoContent(createDocument({
+      pages: [
+        createPage({ id: 'page-1', text: '☺' }),
+        createPage({ id: 'page-2', text: '☼' }),
+      ],
+    }))
+
+    expect(content).toContain('// ☺ (smile) -> page-local lcd.createChar slot')
+    expect(content).toContain('// ☼ (sun) -> page-local lcd.createChar slot')
+    expect(content).toContain('byte CUSTOM_GLYPH_SMILE[8]')
+    expect(content).toContain('byte CUSTOM_GLYPH_SUN[8]')
+    expect(content).toContain('void loadPageCustomCharacters(uint8_t pageIndex)')
+    expect(content).toContain('case 0:')
+    expect(content).toContain('lcd.createChar(0, CUSTOM_GLYPH_SMILE);')
+    expect(content).toContain('case 1:')
+    expect(content).toContain('lcd.createChar(0, CUSTOM_GLYPH_SUN);')
+    expect(content).toContain('loadPageCustomCharacters(pageIndex);')
+    expect(content).not.toContain('"☺"')
+    expect(content).not.toContain('"☼"')
   })
 })

@@ -7,7 +7,8 @@ import {
   textToDisplayRows,
 } from '@/lib/lcd'
 import { isAudioDurationWithinLimit } from '@/lib/audio'
-import { getSpecialTextCode, hasSpecialText } from '@/configs/special-text'
+import { getCustomEmojiItem, hasCustomEmoji, type CustomEmojiItem } from '@/configs/custom-emoji'
+import { getSpecialTextCode, getSpecialTextItem, hasSpecialText, type SpecialTextItem } from '@/configs/special-text'
 import type {
   CountdownOption,
   DurationUnit,
@@ -389,7 +390,16 @@ type ArduinoExportPage = {
 }
 
 type ArduinoSpecialExportPage = ArduinoExportPage & {
+  customGlyphs: ArduinoCustomGlyph[]
   rowBytes: number[][]
+}
+
+type ArduinoCustomGlyph = {
+  id: string
+  label: string
+  display: string
+  glyph: number[][]
+  slot: number
 }
 
 type ArduinoExportModel = {
@@ -404,11 +414,16 @@ type ArduinoExportModel = {
   usedAnimations: LcdAnimation[]
   usedModes: PageMode[]
   usesCountdown: boolean
+  usesCustomEmoji: boolean
   usesOnlyStaticReplace: boolean
   usesScroll: boolean
   usesSpecialText: boolean
   usesTypewriter: boolean
   usesUltraSimpleStaticTemplate: boolean
+  usedSpecialTextItems: SpecialTextItem[]
+  usedCustomEmojiItems: CustomEmojiItem[]
+  customSpecialTextItems: SpecialTextItem[]
+  customGlyphs: ArduinoCustomGlyph[]
   maxLineBytes: number
 }
 
@@ -439,12 +454,20 @@ function getProjectInoRows(screenType: ScreenPresetId, page: PageScript) {
   return getProjectExportRows(screenType, page)
 }
 
-function getArduinoByteValue(character: string) {
+function getArduinoByteValue(character: string, customEmojiSlots: Map<string, number>) {
+  const customEmojiItem = getCustomEmojiItem(character)
+
+  if (customEmojiItem) {
+    return customEmojiSlots.get(customEmojiItem.display) ?? 32
+  }
+
   return getSpecialTextCode(character) ?? character.charCodeAt(0)
 }
 
-function getArduinoRowBytes(rowText: string) {
-  return Array.from(rowText.replace(/\r/g, '').replace(/\n/g, ' ')).map(getArduinoByteValue)
+function getArduinoRowBytes(rowText: string, customEmojiSlots: Map<string, number>) {
+  return Array.from(rowText.replace(/\r/g, '').replace(/\n/g, ' ')).map((character) =>
+    getArduinoByteValue(character, customEmojiSlots),
+  )
 }
 
 function formatArduinoByteArray(bytes: number[], width: number) {
@@ -455,6 +478,92 @@ function formatArduinoByteArray(bytes: number[], width: number) {
   }
 
   return `{ ${paddedBytes.map((byte) => `${byte}`).join(', ')} }`
+}
+
+function getUsedSpecialTextItems(rows: string[]) {
+  const usedItems = new Map<string, SpecialTextItem>()
+
+  for (const row of rows) {
+    for (const character of Array.from(row)) {
+      const item = getSpecialTextItem(character)
+
+      if (item) {
+        usedItems.set(item.display, item)
+      }
+    }
+  }
+
+  return Array.from(usedItems.values())
+}
+
+function getUsedCustomEmojiItems(rows: string[]) {
+  const usedItems = new Map<string, CustomEmojiItem>()
+
+  for (const row of rows) {
+    for (const character of Array.from(row)) {
+      const item = getCustomEmojiItem(character)
+
+      if (item) {
+        usedItems.set(item.display, item)
+      }
+    }
+  }
+
+  return Array.from(usedItems.values())
+}
+
+function getCustomSpecialTextItems(items: SpecialTextItem[]) {
+  const customItems = new Map<number, SpecialTextItem>()
+
+  for (const item of items) {
+    if (item.code >= 0 && item.code <= 7 && !customItems.has(item.code)) {
+      customItems.set(item.code, item)
+    }
+  }
+
+  return Array.from(customItems.values())
+}
+
+function buildPageCustomGlyphs(rows: string[]) {
+  const customGlyphs: ArduinoCustomGlyph[] = []
+  const usedSlots = new Set<number>()
+
+  for (const item of getCustomSpecialTextItems(getUsedSpecialTextItems(rows))) {
+    customGlyphs.push({
+      id: item.id,
+      label: item.label,
+      display: item.display,
+      glyph: item.glyph,
+      slot: item.code,
+    })
+    usedSlots.add(item.code)
+  }
+
+  const availableSlots = Array.from({ length: 8 }, (_, slot) => slot).filter((slot) => !usedSlots.has(slot))
+
+  for (const item of getUsedCustomEmojiItems(rows)) {
+    const slot = availableSlots.shift()
+
+    if (slot === undefined) {
+      break
+    }
+
+    customGlyphs.push({
+      id: item.id,
+      label: item.label,
+      display: item.display,
+      glyph: item.glyph,
+      slot,
+    })
+  }
+
+  return customGlyphs
+}
+
+function getCustomEmojiSlots(customGlyphs: ArduinoCustomGlyph[]) {
+  return new Map(
+    customGlyphs.map((glyph) => [glyph.display, glyph.slot]),
+  )
 }
 
 function getInoPageModeValue(mode: PageMode) {
@@ -487,17 +596,27 @@ function buildArduinoExportModel(document: PixelLyricProjectDocument): ArduinoEx
   const usesCountdown = document.countdownSeconds > 0 && document.includeCountdownInExport
   const pages = document.pages.map((page, pageIndex) => {
     const rows = getProjectInoRows(document.screenType, page)
+    const customGlyphs = buildPageCustomGlyphs(rows)
+    const customEmojiSlots = getCustomEmojiSlots(customGlyphs)
 
     return {
       animation: page.animation,
       comment: formatPageComment(page, pageIndex),
       durationMs: Math.max(100, Math.round(page.durationMs)),
       mode: page.mode,
+      customGlyphs,
       rows,
-      rowBytes: rows.map(getArduinoRowBytes),
+      rowBytes: rows.map((row) => getArduinoRowBytes(row, customEmojiSlots)),
     }
   })
-  const usesSpecialText = pages.some((page) => page.rows.some(hasSpecialText))
+  const usesSpecialText = pages.some((page) => page.rows.some((row) => hasSpecialText(row) || hasCustomEmoji(row)))
+  const usesCustomEmoji = pages.some((page) => page.rows.some(hasCustomEmoji))
+  const usedSpecialTextItems = getUsedSpecialTextItems(pages.flatMap((page) => page.rows))
+  const usedCustomEmojiItems = getUsedCustomEmojiItems(pages.flatMap((page) => page.rows))
+  const customSpecialTextItems = getCustomSpecialTextItems(usedSpecialTextItems)
+  const customGlyphs = Array.from(
+    new Map(pages.flatMap((page) => page.customGlyphs).map((glyph) => [glyph.id, glyph])).values(),
+  )
   const maxLineBytes = Math.max(
     preset.columns,
     ...pages.flatMap((page) => page.rowBytes.map((rowBytes) => rowBytes.length)),
@@ -517,11 +636,16 @@ function buildArduinoExportModel(document: PixelLyricProjectDocument): ArduinoEx
     usedAnimations,
     usedModes,
     usesCountdown,
+    usesCustomEmoji,
     usesOnlyStaticReplace,
     usesScroll,
     usesSpecialText,
     usesTypewriter,
     usesUltraSimpleStaticTemplate,
+    usedSpecialTextItems,
+    usedCustomEmojiItems,
+    customSpecialTextItems,
+    customGlyphs,
     maxLineBytes,
   }
 }
@@ -620,6 +744,61 @@ ${pageLines}
 const PageConfig pages[PAGE_COUNT] = {
 ${pageConfigs}
 };`
+}
+
+function getArduinoIdentifier(value: string) {
+  return value.replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '')
+}
+
+function formatArduinoGlyphRow(row: number[]) {
+  return `B${row.map((value) => (value ? '1' : '0')).join('')}`
+}
+
+function renderSpecialCharacterDefinitions(model: ArduinoExportModel) {
+  const specialCharacterMap = model.usedSpecialTextItems
+    .map((item) => {
+      const kind = item.code >= 0 && item.code <= 7 ? 'custom glyph loaded below' : 'LCD ROM byte'
+      return `// ${item.display} (${item.label}) -> lcd.write((uint8_t)${item.code}); ${kind}`
+    })
+    .join('\n')
+  const customEmojiMap = model.usedCustomEmojiItems
+    .map((item) => `// ${item.display} (${item.label}) -> page-local lcd.createChar slot`)
+    .join('\n')
+  const characterMap = [specialCharacterMap, customEmojiMap].filter(Boolean).join('\n')
+
+  const customGlyphs = model.customGlyphs
+    .map((glyph) => {
+      const constantName = `CUSTOM_GLYPH_${getArduinoIdentifier(glyph.id).toUpperCase()}`
+      const rows = glyph.glyph.map((row) => `  ${formatArduinoGlyphRow(row)}`).join(',\n')
+
+      return `byte ${constantName}[8] = {
+${rows}
+};`
+    })
+    .join('\n\n')
+
+  const createCharCases = model.pages
+    .map((page, pageIndex) => {
+      const createCharLines = page.customGlyphs
+        .map((glyph) => `      lcd.createChar(${glyph.slot}, CUSTOM_GLYPH_${getArduinoIdentifier(glyph.id).toUpperCase()});`)
+        .join('\n')
+
+      return `    case ${pageIndex}:
+${createCharLines || '      // This page does not use custom CGRAM glyphs.'}
+      break;`
+    })
+    .join('\n')
+
+  return `${renderArduinoSectionComment('Special Text Hardware Map', 'CGRAM custom slots are reloaded per page; ROM bytes depend on your LCD controller character set.')}
+${characterMap}
+${customGlyphs ? `\n${customGlyphs}\n` : ''}
+void loadPageCustomCharacters(uint8_t pageIndex) {
+  switch (pageIndex) {
+${createCharCases}
+    default:
+      break;
+  }
+}`
 }
 
 function renderPageModeEnum(model: ArduinoExportModel) {
@@ -1085,15 +1264,17 @@ function renderCountdownHelper() {
 }
 
 function renderPageDispatcher(model: ArduinoExportModel) {
+  const loadCustomCharacters = model.usesSpecialText ? '  loadPageCustomCharacters(pageIndex);\n' : ''
+
   if (model.usesOnlyStaticReplace) {
     return `void renderPage(uint8_t pageIndex) {
-  renderReplacePage(pageIndex, pages[pageIndex].durationMs);
+${loadCustomCharacters}  renderReplacePage(pageIndex, pages[pageIndex].durationMs);
 }`
   }
 
   if (model.usesScroll && model.usesTypewriter) {
     return `void renderPage(uint8_t pageIndex) {
-  const PageConfig& page = pages[pageIndex];
+${loadCustomCharacters}  const PageConfig& page = pages[pageIndex];
   const unsigned long durationMs = page.durationMs;
   const uint8_t mode = page.mode;
   const uint8_t animation = page.animation;
@@ -1114,7 +1295,7 @@ function renderPageDispatcher(model: ArduinoExportModel) {
 
   if (model.usesScroll) {
     return `void renderPage(uint8_t pageIndex) {
-  const PageConfig& page = pages[pageIndex];
+${loadCustomCharacters}  const PageConfig& page = pages[pageIndex];
   const unsigned long durationMs = page.durationMs;
 
   if (page.mode == PAGE_MODE_SCROLL) {
@@ -1128,7 +1309,7 @@ function renderPageDispatcher(model: ArduinoExportModel) {
 
   if (model.usesTypewriter) {
     return `void renderPage(uint8_t pageIndex) {
-  const PageConfig& page = pages[pageIndex];
+${loadCustomCharacters}  const PageConfig& page = pages[pageIndex];
   const unsigned long durationMs = page.durationMs;
 
   if (page.animation == ANIMATION_TYPEWRITER) {
@@ -1141,7 +1322,7 @@ function renderPageDispatcher(model: ArduinoExportModel) {
   }
 
   return `void renderPage(uint8_t pageIndex) {
-  renderReplacePage(pageIndex, pages[pageIndex].durationMs);
+${loadCustomCharacters}  renderReplacePage(pageIndex, pages[pageIndex].durationMs);
 }`
 }
 
@@ -1296,6 +1477,8 @@ struct PageConfig {
   uint8_t animation;
   unsigned long durationMs;
 };
+
+${renderSpecialCharacterDefinitions(model)}
 
 ${renderSpecialArduinoPageData(model)}
 
