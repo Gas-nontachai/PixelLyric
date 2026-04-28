@@ -225,6 +225,11 @@ describe('serializeProjectInoContent', () => {
 
     expect(content).toContain('const uint8_t pageLines[PAGE_COUNT][SCREEN_ROWS][MAX_LINE_BYTES]')
     expect(content).toContain('{ 3, 126, 255')
+    expect(content).toContain('// ♥ (heart) -> lcd.write((uint8_t)3); custom glyph loaded below')
+    expect(content).toContain('// → (arrow_right) -> lcd.write((uint8_t)126); LCD ROM byte')
+    expect(content).toContain('byte SPECIAL_CHAR_HEART[8]')
+    expect(content).toContain('lcd.createChar(3, SPECIAL_CHAR_HEART);')
+    expect(content).toContain('loadSpecialCharacters();')
     expect(content).toContain('lcd.write((uint8_t)getPageLineByte')
     expect(content).not.toContain('lcd.print(fitRow(String(pageLines[pageIndex][rowIndex])))')
     expect(content).not.toContain('"♥→█"')

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { DEFAULT_DURATION_MS, DEFAULT_TEXT } from '@/configs/lcd'
 import { FONT } from '@/configs/lcd-font'
+import { SPECIAL_TEXT_GROUPS, SPECIAL_TEXT_ITEMS } from '@/configs/special-text'
 import {
   autoWrapTextareaValue,
   createBlankPage,
@@ -181,11 +182,28 @@ describe('lcd utilities', () => {
     expect(scrollRightRows).toEqual(['O   ', 'E   '])
   })
 
-  it('includes glyphs for special text preview characters', () => {
+  it('keeps the special text registry valid and grouped for the picker', () => {
+    const displays = SPECIAL_TEXT_ITEMS.map((item) => item.display)
+    const groupedItems = SPECIAL_TEXT_GROUPS.flatMap((group) => group.items)
+
+    expect(new Set(displays).size).toBe(displays.length)
+    expect(groupedItems).toEqual(SPECIAL_TEXT_ITEMS)
+
+    for (const item of SPECIAL_TEXT_ITEMS) {
+      expect(item.id).toBeTruthy()
+      expect(item.display).toHaveLength(1)
+      expect(item.code).toBeGreaterThanOrEqual(0)
+      expect(item.code).toBeLessThanOrEqual(255)
+      expect(item.glyph).toHaveLength(8)
+      expect(item.glyph.every((row) => row.length === 5)).toBe(true)
+    }
+  })
+
+  it('includes preview glyphs for every special text character', () => {
     const fontMap = FONT as Record<string, unknown>
 
-    expect(fontMap['♥']).toBeDefined()
-    expect(fontMap['→']).toBeDefined()
-    expect(fontMap['█']).toBeDefined()
+    for (const item of SPECIAL_TEXT_ITEMS) {
+      expect(fontMap[item.display]).toBeDefined()
+    }
   })
 })

@@ -7,7 +7,7 @@ import {
   textToDisplayRows,
 } from '@/lib/lcd'
 import { isAudioDurationWithinLimit } from '@/lib/audio'
-import { getSpecialTextCode, hasSpecialText } from '@/configs/special-text'
+import { getSpecialTextCode, getSpecialTextItem, hasSpecialText, type SpecialTextItem } from '@/configs/special-text'
 import type {
   CountdownOption,
   DurationUnit,
@@ -409,6 +409,8 @@ type ArduinoExportModel = {
   usesSpecialText: boolean
   usesTypewriter: boolean
   usesUltraSimpleStaticTemplate: boolean
+  usedSpecialTextItems: SpecialTextItem[]
+  customSpecialTextItems: SpecialTextItem[]
   maxLineBytes: number
 }
 
@@ -457,6 +459,34 @@ function formatArduinoByteArray(bytes: number[], width: number) {
   return `{ ${paddedBytes.map((byte) => `${byte}`).join(', ')} }`
 }
 
+function getUsedSpecialTextItems(rows: string[]) {
+  const usedItems = new Map<string, SpecialTextItem>()
+
+  for (const row of rows) {
+    for (const character of Array.from(row)) {
+      const item = getSpecialTextItem(character)
+
+      if (item) {
+        usedItems.set(item.display, item)
+      }
+    }
+  }
+
+  return Array.from(usedItems.values())
+}
+
+function getCustomSpecialTextItems(items: SpecialTextItem[]) {
+  const customItems = new Map<number, SpecialTextItem>()
+
+  for (const item of items) {
+    if (item.code >= 0 && item.code <= 7 && !customItems.has(item.code)) {
+      customItems.set(item.code, item)
+    }
+  }
+
+  return Array.from(customItems.values())
+}
+
 function getInoPageModeValue(mode: PageMode) {
   return mode === 'scroll' ? 'PAGE_MODE_SCROLL' : 'PAGE_MODE_STATIC'
 }
@@ -498,6 +528,8 @@ function buildArduinoExportModel(document: PixelLyricProjectDocument): ArduinoEx
     }
   })
   const usesSpecialText = pages.some((page) => page.rows.some(hasSpecialText))
+  const usedSpecialTextItems = getUsedSpecialTextItems(pages.flatMap((page) => page.rows))
+  const customSpecialTextItems = getCustomSpecialTextItems(usedSpecialTextItems)
   const maxLineBytes = Math.max(
     preset.columns,
     ...pages.flatMap((page) => page.rowBytes.map((rowBytes) => rowBytes.length)),
@@ -522,6 +554,8 @@ function buildArduinoExportModel(document: PixelLyricProjectDocument): ArduinoEx
     usesSpecialText,
     usesTypewriter,
     usesUltraSimpleStaticTemplate,
+    usedSpecialTextItems,
+    customSpecialTextItems,
     maxLineBytes,
   }
 }
@@ -620,6 +654,45 @@ ${pageLines}
 const PageConfig pages[PAGE_COUNT] = {
 ${pageConfigs}
 };`
+}
+
+function getArduinoIdentifier(value: string) {
+  return value.replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '')
+}
+
+function formatArduinoGlyphRow(row: number[]) {
+  return `B${row.map((value) => (value ? '1' : '0')).join('')}`
+}
+
+function renderSpecialCharacterDefinitions(model: ArduinoExportModel) {
+  const characterMap = model.usedSpecialTextItems
+    .map((item) => {
+      const kind = item.code >= 0 && item.code <= 7 ? 'custom glyph loaded below' : 'LCD ROM byte'
+      return `// ${item.display} (${item.label}) -> lcd.write((uint8_t)${item.code}); ${kind}`
+    })
+    .join('\n')
+
+  const customGlyphs = model.customSpecialTextItems
+    .map((item) => {
+      const constantName = `SPECIAL_CHAR_${getArduinoIdentifier(item.id).toUpperCase()}`
+      const rows = item.glyph.map((row) => `  ${formatArduinoGlyphRow(row)}`).join(',\n')
+
+      return `byte ${constantName}[8] = {
+${rows}
+};`
+    })
+    .join('\n\n')
+
+  const createCharLines = model.customSpecialTextItems
+    .map((item) => `  lcd.createChar(${item.code}, ${`SPECIAL_CHAR_${getArduinoIdentifier(item.id).toUpperCase()}`});`)
+    .join('\n')
+
+  return `${renderArduinoSectionComment('Special Text Hardware Map', 'Custom slots are loaded with lcd.createChar; ROM bytes depend on your LCD controller character set.')}
+${characterMap}
+${customGlyphs ? `\n${customGlyphs}\n` : ''}
+void loadSpecialCharacters() {
+${createCharLines || '  // No CGRAM custom character slots are used by this export.'}
+}`
 }
 
 function renderPageModeEnum(model: ArduinoExportModel) {
@@ -1152,6 +1225,10 @@ function renderSetupFunction(model: ArduinoExportModel) {
     '  lcd.backlight();',
   ]
 
+  if (model.usesSpecialText) {
+    lines.push('  loadSpecialCharacters();')
+  }
+
   if (model.usesCountdown) {
     lines.push('  runCountdown();')
   }
@@ -1296,6 +1373,8 @@ struct PageConfig {
   uint8_t animation;
   unsigned long durationMs;
 };
+
+${renderSpecialCharacterDefinitions(model)}
 
 ${renderSpecialArduinoPageData(model)}
 
