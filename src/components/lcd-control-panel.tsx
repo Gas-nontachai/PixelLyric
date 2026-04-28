@@ -1,4 +1,15 @@
-import { memo, type ChangeEvent, type DragEvent, type KeyboardEvent, useMemo, useState } from 'react'
+import {
+  memo,
+  type ChangeEvent,
+  type DragEvent,
+  type KeyboardEvent,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { ChevronLeft, ChevronRight, Copy, Plus, Trash2, X } from 'lucide-react'
 
 import {
@@ -87,13 +98,25 @@ function LcdControlPanelComponent({
   const formattedDuration = formatDurationInput(activePage.durationMs, activePage.durationUnit)
   const [dragState, setDragState] = useState<{
     draggedPageId: string | null
+    draggedPageIds: string[]
     targetPageId: string | null
     dropPosition: PageDropPosition | null
   }>({
     draggedPageId: null,
+    draggedPageIds: [],
     targetPageId: null,
     dropPosition: null,
   })
+  const [recentlyDroppedPageIds, setRecentlyDroppedPageIds] = useState<string[]>([])
+  const tabRefs = useRef(new Map<string, HTMLButtonElement>())
+  const beforeDropRectsRef = useRef<Map<string, DOMRect> | null>(null)
+  const recentlyDroppedTimeoutRef = useRef<number | null>(null)
+  const recentlyDroppedPageIdSet = useMemo(() => (
+    new Set(recentlyDroppedPageIds)
+  ), [recentlyDroppedPageIds])
+  const draggedPageIdSet = useMemo(() => (
+    new Set(dragState.draggedPageIds)
+  ), [dragState.draggedPageIds])
   const [durationDraftState, setDurationDraftState] = useState({
     pageId: activePage.id,
     unit: activePage.durationUnit,
@@ -131,9 +154,33 @@ function LcdControlPanelComponent({
   const selectedActionCount = selectedPageIds.length > 0 ? selectedPageIds.length : 1
   const canDeleteSelectedPages = pages.length > selectedActionCount
 
+  const setPageTabRef = useCallback((pageId: string, node: HTMLButtonElement | null) => {
+    if (node) {
+      tabRefs.current.set(pageId, node)
+      return
+    }
+
+    tabRefs.current.delete(pageId)
+  }, [])
+
+  const getMovingPageIds = useCallback((pageId: string) => (
+    selectedPageIdSet.has(pageId)
+      ? pages.filter((page) => selectedPageIdSet.has(page.id)).map((page) => page.id)
+      : [pageId]
+  ), [pages, selectedPageIdSet])
+
+  const captureTabRects = () => {
+    beforeDropRectsRef.current = new Map(
+      Array.from(tabRefs.current.entries()).map(([pageId, element]) => (
+        [pageId, element.getBoundingClientRect()]
+      )),
+    )
+  }
+
   const clearDragState = () => {
     setDragState({
       draggedPageId: null,
+      draggedPageIds: [],
       targetPageId: null,
       dropPosition: null,
     })
@@ -148,10 +195,13 @@ function LcdControlPanelComponent({
   }
 
   const handlePageChipDragStart = (event: DragEvent<HTMLButtonElement>, pageId: string) => {
+    const movingPageIds = getMovingPageIds(pageId)
+
     event.dataTransfer.effectAllowed = 'move'
     event.dataTransfer.setData('text/plain', pageId)
     setDragState({
       draggedPageId: pageId,
+      draggedPageIds: movingPageIds,
       targetPageId: null,
       dropPosition: null,
     })
@@ -162,9 +212,7 @@ function LcdControlPanelComponent({
       return
     }
 
-    const movingPageIds = selectedPageIdSet.has(dragState.draggedPageId)
-      ? new Set(selectedPageIds)
-      : new Set([dragState.draggedPageId])
+    const movingPageIds = new Set(dragState.draggedPageIds)
 
     if (movingPageIds.has(pageId)) {
       if (dragState.targetPageId !== null || dragState.dropPosition !== null) {
@@ -194,9 +242,75 @@ function LcdControlPanelComponent({
       return
     }
 
+    captureTabRects()
+    setRecentlyDroppedPageIds(dragState.draggedPageIds)
     onReorderPages(dragState.draggedPageId, pageId, dragState.dropPosition)
     clearDragState()
   }
+
+  useLayoutEffect(() => {
+    const beforeDropRects = beforeDropRectsRef.current
+
+    if (!beforeDropRects) {
+      return
+    }
+
+    beforeDropRectsRef.current = null
+
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      return
+    }
+
+    tabRefs.current.forEach((element, pageId) => {
+      const previousRect = beforeDropRects.get(pageId)
+
+      if (!previousRect) {
+        return
+      }
+
+      const nextRect = element.getBoundingClientRect()
+      const deltaX = previousRect.left - nextRect.left
+      const deltaY = previousRect.top - nextRect.top
+
+      if (Math.abs(deltaX) < 0.5 && Math.abs(deltaY) < 0.5) {
+        return
+      }
+
+      element.animate(
+        [
+          { transform: `translate(${deltaX}px, ${deltaY}px)` },
+          { transform: 'translate(0, 0)' },
+        ],
+        {
+          duration: 260,
+          easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+        },
+      )
+    })
+  }, [pages, recentlyDroppedPageIds])
+
+  useEffect(() => {
+    if (recentlyDroppedTimeoutRef.current !== null) {
+      window.clearTimeout(recentlyDroppedTimeoutRef.current)
+      recentlyDroppedTimeoutRef.current = null
+    }
+
+    if (recentlyDroppedPageIds.length === 0) {
+      return undefined
+    }
+
+    recentlyDroppedTimeoutRef.current = window.setTimeout(() => {
+      setRecentlyDroppedPageIds([])
+      recentlyDroppedTimeoutRef.current = null
+    }, 720)
+
+    return () => {
+      if (recentlyDroppedTimeoutRef.current !== null) {
+        window.clearTimeout(recentlyDroppedTimeoutRef.current)
+        recentlyDroppedTimeoutRef.current = null
+      }
+    }
+  }, [recentlyDroppedPageIds])
 
   return (
     <div
@@ -217,12 +331,15 @@ function LcdControlPanelComponent({
           {pages.map((page, pageIndex) => (
             <button
               key={page.id}
+              ref={(node) => setPageTabRef(page.id, node)}
               className={[
                 'lcd-editor-tab',
                 pageIndex === activePageIndex ? 'lcd-editor-tab-active' : '',
                 selectedPageIdSet.has(page.id) ? 'lcd-editor-tab-selected' : '',
                 pageIndex === activePageIndex && selectedPageIdSet.has(page.id) ? 'lcd-editor-tab-active-selected' : '',
                 dragState.draggedPageId === page.id ? 'lcd-editor-tab-dragging' : '',
+                draggedPageIdSet.has(page.id) ? 'lcd-editor-tab-drag-group' : '',
+                recentlyDroppedPageIdSet.has(page.id) ? 'lcd-editor-tab-dropped' : '',
                 dragState.targetPageId === page.id && dragState.dropPosition === 'before' ? 'lcd-editor-tab-drop-before' : '',
                 dragState.targetPageId === page.id && dragState.dropPosition === 'after' ? 'lcd-editor-tab-drop-after' : '',
               ].filter(Boolean).join(' ')}
@@ -238,6 +355,11 @@ function LcdControlPanelComponent({
               aria-selected={pageIndex === activePageIndex}
             >
               {pageIndex + 1}
+              {dragState.draggedPageId === page.id && dragState.draggedPageIds.length > 1 ? (
+                <span className="lcd-editor-tab-drag-count" aria-label={`${dragState.draggedPageIds.length} pages selected`}>
+                  {dragState.draggedPageIds.length}
+                </span>
+              ) : null}
             </button>
           ))}
         </div>

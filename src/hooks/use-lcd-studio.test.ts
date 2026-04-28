@@ -101,6 +101,16 @@ describe('page selection and ordering helpers', () => {
     expect(result.activePageId).toBe('a')
   })
 
+  it('does not reorder when dropping a selected group onto itself', () => {
+    const pages = [createPage('a'), createPage('b'), createPage('c'), createPage('d')]
+    const result = reorderPageSelection(pages, ['b', 'c'], 'b', 'c', 'after', 'b')
+
+    expect(result.didChange).toBe(false)
+    expect(result.nextPages).toBe(pages)
+    expect(result.nextSelectedPageIds).toEqual(['b', 'c'])
+    expect(result.activePageId).toBe('b')
+  })
+
   it('preserves valid selected ids by page id and falls back when needed', () => {
     const pages = [createPage('a'), createPage('b')]
 
