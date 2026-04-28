@@ -1589,6 +1589,10 @@
   gap: 8px;
 }
 
+.lcd-text-field {
+  position: relative;
+}
+
 .lcd-checkbox-field {
   display: flex;
   gap: 6px;
@@ -1628,6 +1632,137 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 16px;
+}
+
+.lcd-field-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lcd-special-text-toggle {
+  display: inline-grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(12, 41, 19, 0.14);
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--foreground);
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.lcd-special-text-toggle svg {
+  width: 19px;
+  height: 19px;
+}
+
+.lcd-special-text-toggle:hover,
+.lcd-special-text-toggle-active {
+  border-color: rgba(77, 151, 38, 0.44);
+  background: rgba(218, 243, 169, 0.78);
+  color: #1b5f23;
+}
+
+.lcd-special-text-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.lcd-special-text-anchor {
+  position: relative;
+  display: inline-grid;
+}
+
+.lcd-special-text-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  display: grid;
+  width: min(320px, calc(100vw - 56px));
+  max-height: min(280px, 52vh);
+  gap: 12px;
+  overflow-y: auto;
+  border-radius: 18px;
+  border: 1px solid rgba(12, 41, 19, 0.12);
+  background: rgba(245, 251, 241, 0.96);
+  padding: 12px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 12px 24px rgba(14, 51, 24, 0.08);
+  transform-origin: top right;
+  animation: lcd-special-text-popover-in 160ms ease-out both;
+}
+
+.lcd-special-text-panel-closing {
+  pointer-events: none;
+  animation: lcd-special-text-popover-out 140ms ease-in both;
+}
+
+.lcd-special-text-group {
+  display: grid;
+  gap: 8px;
+}
+
+.lcd-special-text-group-label {
+  color: var(--muted-foreground);
+  font-size: 0.76rem;
+  text-transform: uppercase;
+}
+
+.lcd-special-text-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
+  gap: 6px;
+}
+
+.lcd-special-text-item {
+  display: grid;
+  min-width: 0;
+  height: 38px;
+  place-items: center;
+  border-radius: 10px;
+  border: 1px solid rgba(12, 41, 19, 0.12);
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--foreground);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.lcd-special-text-item:hover {
+  border-color: rgba(77, 151, 38, 0.42);
+  background: rgba(225, 244, 190, 0.9);
+}
+
+@keyframes lcd-special-text-popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes lcd-special-text-popover-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
 }
 
 .lcd-field-row small {
@@ -1963,6 +2098,7 @@
   .lcd-workspace-editor-open .lcd-editor-dock {
     width: 360px;
     opacity: 1;
+    overflow: visible;
     transform: translateX(0);
   }
 

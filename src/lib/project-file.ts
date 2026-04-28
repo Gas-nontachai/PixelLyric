@@ -7,6 +7,7 @@ import {
   textToDisplayRows,
 } from '@/lib/lcd'
 import { isAudioDurationWithinLimit } from '@/lib/audio'
+import { getSpecialTextCode, hasSpecialText } from '@/configs/special-text'
 import type {
   CountdownOption,
   DurationUnit,
@@ -387,11 +388,15 @@ type ArduinoExportPage = {
   rows: string[]
 }
 
+type ArduinoSpecialExportPage = ArduinoExportPage & {
+  rowBytes: number[][]
+}
+
 type ArduinoExportModel = {
   countdownSeconds: CountdownOption
   includeCountdownInExport: boolean
   pageCount: number
-  pages: ArduinoExportPage[]
+  pages: ArduinoSpecialExportPage[]
   projectName: string
   screenType: ScreenPresetId
   screenColumns: number
@@ -401,8 +406,10 @@ type ArduinoExportModel = {
   usesCountdown: boolean
   usesOnlyStaticReplace: boolean
   usesScroll: boolean
+  usesSpecialText: boolean
   usesTypewriter: boolean
   usesUltraSimpleStaticTemplate: boolean
+  maxLineBytes: number
 }
 
 function getProjectExportRows(
@@ -430,6 +437,24 @@ function getProjectInoRows(screenType: ScreenPresetId, page: PageScript) {
   }
 
   return getProjectExportRows(screenType, page)
+}
+
+function getArduinoByteValue(character: string) {
+  return getSpecialTextCode(character) ?? character.charCodeAt(0)
+}
+
+function getArduinoRowBytes(rowText: string) {
+  return Array.from(rowText.replace(/\r/g, '').replace(/\n/g, ' ')).map(getArduinoByteValue)
+}
+
+function formatArduinoByteArray(bytes: number[], width: number) {
+  const paddedBytes = bytes.slice(0, width)
+
+  while (paddedBytes.length < width) {
+    paddedBytes.push(32)
+  }
+
+  return `{ ${paddedBytes.map((byte) => `${byte}`).join(', ')} }`
 }
 
 function getInoPageModeValue(mode: PageMode) {
@@ -460,20 +485,31 @@ function buildArduinoExportModel(document: PixelLyricProjectDocument): ArduinoEx
   const usesScroll = usedModes.includes('scroll')
   const usesTypewriter = usedAnimations.includes('typewriter')
   const usesCountdown = document.countdownSeconds > 0 && document.includeCountdownInExport
+  const pages = document.pages.map((page, pageIndex) => {
+    const rows = getProjectInoRows(document.screenType, page)
+
+    return {
+      animation: page.animation,
+      comment: formatPageComment(page, pageIndex),
+      durationMs: Math.max(100, Math.round(page.durationMs)),
+      mode: page.mode,
+      rows,
+      rowBytes: rows.map(getArduinoRowBytes),
+    }
+  })
+  const usesSpecialText = pages.some((page) => page.rows.some(hasSpecialText))
+  const maxLineBytes = Math.max(
+    preset.columns,
+    ...pages.flatMap((page) => page.rowBytes.map((rowBytes) => rowBytes.length)),
+  )
   const usesOnlyStaticReplace = !usesScroll && !usesTypewriter && usedAnimations.every((animation) => animation === 'replace')
-  const usesUltraSimpleStaticTemplate = usesOnlyStaticReplace && !usesCountdown
+  const usesUltraSimpleStaticTemplate = usesOnlyStaticReplace && !usesCountdown && !usesSpecialText
 
   return {
     countdownSeconds: document.countdownSeconds,
     includeCountdownInExport: document.includeCountdownInExport,
     pageCount: document.pages.length,
-    pages: document.pages.map((page, pageIndex) => ({
-      animation: page.animation,
-      comment: formatPageComment(page, pageIndex),
-      durationMs: Math.max(100, Math.round(page.durationMs)),
-      mode: page.mode,
-      rows: getProjectInoRows(document.screenType, page),
-    })),
+    pages,
     projectName: escapeArduinoString(document.projectName),
     screenColumns: preset.columns,
     screenRows: preset.rows,
@@ -483,8 +519,10 @@ function buildArduinoExportModel(document: PixelLyricProjectDocument): ArduinoEx
     usesCountdown,
     usesOnlyStaticReplace,
     usesScroll,
+    usesSpecialText,
     usesTypewriter,
     usesUltraSimpleStaticTemplate,
+    maxLineBytes,
   }
 }
 
@@ -534,6 +572,54 @@ function renderUltraSimpleStaticPageData(model: ArduinoExportModel) {
     .join('\n')
 
   return `${renderArduinoSectionComment('Page Data', 'Edit the text rows or timings below to customize the sketch.')}\nconst char* pageLines[PAGE_COUNT][SCREEN_ROWS] = {\n${pageLines}\n};\n\nconst unsigned long pageDurations[PAGE_COUNT] = {\n${pageDurations}\n};`
+}
+
+function renderSpecialArduinoPageRows(page: ArduinoSpecialExportPage, width: number) {
+  const rows = page.rowBytes
+    .map((rowBytes) => `    ${formatArduinoByteArray(rowBytes, width)}`)
+    .join(',\n')
+
+  return `  {\n${rows}\n  }`
+}
+
+function renderSpecialArduinoPageLengths(page: ArduinoSpecialExportPage) {
+  return `  { ${page.rowBytes.map((rowBytes) => rowBytes.length).join(', ')} }`
+}
+
+function renderSpecialArduinoPageConfig(page: ArduinoSpecialExportPage) {
+  return `  // ${page.comment}
+  {
+    ${getInoPageModeValue(page.mode)},
+    ${getInoAnimationValue(page.animation)},
+    ${page.durationMs}UL
+  }`
+}
+
+function renderSpecialArduinoPageData(model: ArduinoExportModel) {
+  const pageLineLengths = model.pages
+    .map((page, pageIndex) => `  // ${page.comment}\n${renderSpecialArduinoPageLengths(page)}${pageIndex < model.pages.length - 1 ? ',' : ''}`)
+    .join('\n')
+  const pageLines = model.pages
+    .map((page, pageIndex) => `  // ${page.comment}\n${renderSpecialArduinoPageRows(page, model.maxLineBytes)}${pageIndex < model.pages.length - 1 ? ',' : ''}`)
+    .join('\n')
+  const pageConfigs = model.pages
+    .map((page, pageIndex) => `${renderSpecialArduinoPageConfig(page)}${pageIndex < model.pages.length - 1 ? ',' : ''}`)
+    .join('\n')
+
+  return `${renderArduinoSectionComment('Page Data', 'Special text is stored as LCD byte codes so Unicode symbols do not break the sketch.')}
+const uint16_t MAX_LINE_BYTES = ${model.maxLineBytes};
+
+const uint16_t pageLineLengths[PAGE_COUNT][SCREEN_ROWS] = {
+${pageLineLengths}
+};
+
+const uint8_t pageLines[PAGE_COUNT][SCREEN_ROWS][MAX_LINE_BYTES] = {
+${pageLines}
+};
+
+const PageConfig pages[PAGE_COUNT] = {
+${pageConfigs}
+};`
 }
 
 function renderPageModeEnum(model: ArduinoExportModel) {
@@ -589,6 +675,201 @@ function renderPrintPageRowsHelper() {
   for (uint8_t rowIndex = 0; rowIndex < SCREEN_ROWS; rowIndex++) {
     lcd.setCursor(0, rowIndex);
     lcd.print(rows[rowIndex]);
+  }
+}`
+}
+
+function renderSpecialPageByteHelpers() {
+  return `uint8_t getPageLineByte(uint8_t pageIndex, uint8_t rowIndex, uint16_t byteIndex) {
+  if (byteIndex < pageLineLengths[pageIndex][rowIndex]) {
+    return pageLines[pageIndex][rowIndex][byteIndex];
+  }
+
+  return ' ';
+}
+
+void writePageLineWindow(uint8_t pageIndex, uint8_t rowIndex, uint16_t windowStart) {
+  for (uint8_t columnIndex = 0; columnIndex < SCREEN_COLS; columnIndex++) {
+    lcd.write((uint8_t)getPageLineByte(pageIndex, rowIndex, windowStart + columnIndex));
+  }
+}`
+}
+
+function renderSpecialStaticPageHelper() {
+  return `void renderStaticPage(uint8_t pageIndex) {
+  lcd.clear();
+
+  for (uint8_t rowIndex = 0; rowIndex < SCREEN_ROWS; rowIndex++) {
+    lcd.setCursor(0, rowIndex);
+    writePageLineWindow(pageIndex, rowIndex, 0);
+  }
+}`
+}
+
+function renderSpecialTypewriterPageHelper() {
+  return `void renderTypewriterPage(uint8_t pageIndex, unsigned long durationMs) {
+  const uint16_t totalCharacters = SCREEN_COLS * SCREEN_ROWS;
+
+  lcd.clear();
+  const unsigned long pageStartMs = millis();
+  uint16_t renderedCharacters = 0;
+
+  if (durationMs < totalCharacters) {
+    renderStaticPage(pageIndex);
+    const unsigned long remainingMs = durationMs - min(durationMs, millis() - pageStartMs);
+
+    if (remainingMs > 0) {
+      delay(remainingMs);
+    }
+
+    return;
+  }
+
+  while (renderedCharacters < totalCharacters) {
+    const unsigned long elapsedMs = millis() - pageStartMs;
+
+    if (elapsedMs >= durationMs) {
+      break;
+    }
+
+    uint16_t targetCharacters = (elapsedMs * totalCharacters) / durationMs;
+
+    if (targetCharacters > totalCharacters) {
+      targetCharacters = totalCharacters;
+    }
+
+    if (targetCharacters == renderedCharacters) {
+      delay(1);
+      continue;
+    }
+
+    while (renderedCharacters < targetCharacters) {
+      const uint8_t rowIndex = renderedCharacters / SCREEN_COLS;
+      const uint8_t columnIndex = renderedCharacters % SCREEN_COLS;
+      lcd.setCursor(columnIndex, rowIndex);
+      lcd.write((uint8_t)getPageLineByte(pageIndex, rowIndex, columnIndex));
+      renderedCharacters++;
+    }
+  }
+
+  while (renderedCharacters < totalCharacters) {
+    const uint8_t rowIndex = renderedCharacters / SCREEN_COLS;
+    const uint8_t columnIndex = renderedCharacters % SCREEN_COLS;
+    lcd.setCursor(columnIndex, rowIndex);
+    lcd.write((uint8_t)getPageLineByte(pageIndex, rowIndex, columnIndex));
+    renderedCharacters++;
+  }
+
+  const unsigned long remainingMs = durationMs - min(durationMs, millis() - pageStartMs);
+
+  if (remainingMs > 0) {
+    delay(remainingMs);
+  }
+}`
+}
+
+function renderSpecialScrollPageHelper() {
+  return `uint8_t getScrollSourceByte(uint8_t pageIndex, uint8_t rowIndex, uint16_t sourceIndex) {
+  if (sourceIndex < SCREEN_COLS) {
+    return ' ';
+  }
+
+  const uint16_t lineIndex = sourceIndex - SCREEN_COLS;
+
+  if (lineIndex < pageLineLengths[pageIndex][rowIndex]) {
+    return pageLines[pageIndex][rowIndex][lineIndex];
+  }
+
+  return ' ';
+}
+
+void writeScrollWindow(uint8_t pageIndex, uint8_t rowIndex, uint16_t windowStart) {
+  for (uint8_t columnIndex = 0; columnIndex < SCREEN_COLS; columnIndex++) {
+    lcd.write((uint8_t)getScrollSourceByte(pageIndex, rowIndex, windowStart + columnIndex));
+  }
+}
+
+void renderScrollPage(uint8_t pageIndex, bool scrollRight, unsigned long durationMs) {
+  uint16_t maxSteps = 1;
+
+  for (uint8_t rowIndex = 0; rowIndex < SCREEN_ROWS; rowIndex++) {
+    const uint16_t sourceLength = SCREEN_COLS + pageLineLengths[pageIndex][rowIndex] + SCREEN_COLS;
+    const uint16_t rowSteps = sourceLength >= SCREEN_COLS ? sourceLength - SCREEN_COLS + 1 : 1;
+    maxSteps = rowSteps > maxSteps ? rowSteps : maxSteps;
+  }
+
+  lcd.clear();
+  const unsigned long pageStartMs = millis();
+
+  if (durationMs < maxSteps) {
+    for (uint8_t rowIndex = 0; rowIndex < SCREEN_ROWS; rowIndex++) {
+      const uint16_t sourceLength = SCREEN_COLS + pageLineLengths[pageIndex][rowIndex] + SCREEN_COLS;
+      const uint16_t rowSteps = sourceLength >= SCREEN_COLS ? sourceLength - SCREEN_COLS + 1 : 1;
+      const uint16_t windowStart = scrollRight ? 0 : rowSteps - 1;
+
+      lcd.setCursor(0, rowIndex);
+      writeScrollWindow(pageIndex, rowIndex, windowStart);
+    }
+
+    delay(durationMs);
+    return;
+  }
+
+  uint16_t renderedStep = 0;
+  bool hasRenderedStep = false;
+
+  while (renderedStep < maxSteps) {
+    const unsigned long elapsedMs = millis() - pageStartMs;
+
+    if (elapsedMs >= durationMs) {
+      break;
+    }
+
+    uint16_t targetStep = (elapsedMs * maxSteps) / durationMs;
+
+    if (targetStep > maxSteps - 1) {
+      targetStep = maxSteps - 1;
+    }
+
+    if (targetStep == renderedStep && hasRenderedStep) {
+      delay(1);
+      continue;
+    }
+
+    renderedStep = targetStep;
+    hasRenderedStep = true;
+
+    for (uint8_t rowIndex = 0; rowIndex < SCREEN_ROWS; rowIndex++) {
+      const uint16_t sourceLength = SCREEN_COLS + pageLineLengths[pageIndex][rowIndex] + SCREEN_COLS;
+      const uint16_t rowSteps = sourceLength >= SCREEN_COLS ? sourceLength - SCREEN_COLS + 1 : 1;
+      const uint16_t scaledStep = rowSteps <= 1 || maxSteps <= 1
+        ? 0
+        : (renderedStep * (rowSteps - 1)) / (maxSteps - 1);
+      const uint16_t windowStart = scrollRight ? (rowSteps - 1) - scaledStep : scaledStep;
+
+      lcd.setCursor(0, rowIndex);
+      writeScrollWindow(pageIndex, rowIndex, windowStart);
+    }
+  }
+
+  const uint16_t finalStep = maxSteps - 1;
+
+  for (uint8_t rowIndex = 0; rowIndex < SCREEN_ROWS; rowIndex++) {
+    const uint16_t sourceLength = SCREEN_COLS + pageLineLengths[pageIndex][rowIndex] + SCREEN_COLS;
+    const uint16_t rowSteps = sourceLength >= SCREEN_COLS ? sourceLength - SCREEN_COLS + 1 : 1;
+    const uint16_t scaledStep = rowSteps <= 1 || maxSteps <= 1
+      ? 0
+      : (finalStep * (rowSteps - 1)) / (maxSteps - 1);
+    const uint16_t windowStart = scrollRight ? (rowSteps - 1) - scaledStep : scaledStep;
+
+    lcd.setCursor(0, rowIndex);
+    writeScrollWindow(pageIndex, rowIndex, windowStart);
+  }
+
+  const unsigned long remainingMs = durationMs - min(durationMs, millis() - pageStartMs);
+
+  if (remainingMs > 0) {
+    delay(remainingMs);
   }
 }`
 }
@@ -913,6 +1194,34 @@ function renderRuntimeHelpers(model: ArduinoExportModel) {
   return `${renderArduinoSectionComment('Runtime Helpers', 'These functions drive playback. Most projects only need the config above.')}\n${helpers.join('\n\n')}`
 }
 
+function renderSpecialRuntimeHelpers(model: ArduinoExportModel) {
+  const helpers = [
+    renderSpecialPageByteHelpers(),
+    renderSpecialStaticPageHelper(),
+    renderReplacePageHelper(),
+  ]
+
+  if (model.usesTypewriter) {
+    helpers.push(renderSpecialTypewriterPageHelper())
+  }
+
+  if (model.usesScroll) {
+    helpers.push(renderSpecialScrollPageHelper())
+  }
+
+  if (model.usesCountdown) {
+    helpers.push(renderCountdownHelper())
+  }
+
+  helpers.push(renderPageDispatcher(model), renderSetupFunction(model), `void loop() {
+  for (uint8_t pageIndex = 0; pageIndex < PAGE_COUNT; pageIndex++) {
+    renderPage(pageIndex);
+  }
+}`)
+
+  return `${renderArduinoSectionComment('Runtime Helpers', 'These functions drive playback. Most projects only need the config above.')}\n${helpers.join('\n\n')}`
+}
+
 function renderUltraSimpleStaticLoop() {
   return `void loop() {
   for (uint8_t pageIndex = 0; pageIndex < PAGE_COUNT; pageIndex++) {
@@ -959,6 +1268,41 @@ ${renderUltraSimpleStaticRuntimeHelpers()}
 `
 }
 
+function renderSpecialArduinoIno(model: ArduinoExportModel) {
+  return `// PixelLyric Arduino LCD export
+// Project: ${model.projectName}
+// Screen: ${model.screenType}
+// Requires: LiquidCrystal_I2C library
+// If your display does not respond, try changing LCD_ADDRESS from 0x27 to 0x3F.
+
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
+${renderArduinoSectionComment('User Config', 'Adjust these values first when wiring or retiming the display.')}
+const uint8_t LCD_ADDRESS = 0x27;
+const uint8_t SCREEN_COLS = ${model.screenColumns};
+const uint8_t SCREEN_ROWS = ${model.screenRows};
+const uint8_t PAGE_COUNT = ${model.pageCount};
+const uint8_t START_COUNTDOWN_SECONDS = ${model.countdownSeconds};
+
+LiquidCrystal_I2C lcd(LCD_ADDRESS, SCREEN_COLS, SCREEN_ROWS);
+
+${renderPageModeEnum(model)}
+
+${renderPageAnimationEnum()}
+
+struct PageConfig {
+  uint8_t mode;
+  uint8_t animation;
+  unsigned long durationMs;
+};
+
+${renderSpecialArduinoPageData(model)}
+
+${renderSpecialRuntimeHelpers(model)}
+`
+}
+
 function renderArduinoIno(model: ArduinoExportModel) {
   return `// PixelLyric Arduino LCD export
 // Project: ${model.projectName}
@@ -997,6 +1341,10 @@ ${renderRuntimeHelpers(model)}
 
 export function serializeProjectInoContent(document: PixelLyricProjectDocument) {
   const model = buildArduinoExportModel(document)
+  if (model.usesSpecialText) {
+    return renderSpecialArduinoIno(model)
+  }
+
   return model.usesUltraSimpleStaticTemplate ? renderUltraSimpleStaticIno(model) : renderArduinoIno(model)
 }
 

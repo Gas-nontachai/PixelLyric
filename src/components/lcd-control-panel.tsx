@@ -10,7 +10,7 @@ import {
   useRef,
   useState,
 } from 'react'
-import { ChevronLeft, ChevronRight, Copy, Plus, Trash2, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Copy, Plus, SmilePlus, Trash2, X } from 'lucide-react'
 
 import {
   DURATION_UNIT_OPTIONS,
@@ -19,6 +19,7 @@ import {
   PAGE_MODE_OPTIONS,
   SCROLL_ANIMATION_OPTIONS,
 } from '@/configs/lcd'
+import { SPECIAL_TEXT_GROUPS } from '@/configs/special-text'
 import { Button } from '@/components/ui/button'
 import {
   formatDurationInput,
@@ -55,6 +56,7 @@ type LcdControlPanelProps = {
   onPageModeChange: (pageIndex: number, mode: PageMode) => void
   onPageAnimationChange: (pageIndex: number, animation: LcdAnimation) => void
   onPageTextChange: (pageIndex: number, event: ChangeEvent<HTMLTextAreaElement>) => void
+  onPageTextValueChange: (pageIndex: number, value: string) => void
   onRowTextChange: (pageIndex: number, rowIndex: number, value: string) => void
   onDurationValueChange: (
     pageIndex: number,
@@ -86,6 +88,7 @@ function LcdControlPanelComponent({
   onPageModeChange,
   onPageAnimationChange,
   onPageTextChange,
+  onPageTextValueChange,
   onRowTextChange,
   onDurationValueChange,
   onDurationUnitChange,
@@ -109,8 +112,13 @@ function LcdControlPanelComponent({
   })
   const [recentlyDroppedPageIds, setRecentlyDroppedPageIds] = useState<string[]>([])
   const tabRefs = useRef(new Map<string, HTMLButtonElement>())
+  const pageTextAreaRef = useRef<HTMLTextAreaElement | null>(null)
+  const specialTextAnchorRef = useRef<HTMLSpanElement | null>(null)
   const beforeDropRectsRef = useRef<Map<string, DOMRect> | null>(null)
   const recentlyDroppedTimeoutRef = useRef<number | null>(null)
+  const [specialTextPanelState, setSpecialTextPanelState] = useState<'closed' | 'open' | 'closing'>('closed')
+  const isSpecialTextOpen = specialTextPanelState === 'open'
+  const isSpecialTextPanelVisible = specialTextPanelState !== 'closed'
   const recentlyDroppedPageIdSet = useMemo(() => (
     new Set(recentlyDroppedPageIds)
   ), [recentlyDroppedPageIds])
@@ -153,6 +161,25 @@ function LcdControlPanelComponent({
 
   const selectedActionCount = selectedPageIds.length > 0 ? selectedPageIds.length : 1
   const canDeleteSelectedPages = pages.length > selectedActionCount
+
+  const toggleSpecialTextPanel = () => {
+    setSpecialTextPanelState((currentState) => (currentState === 'open' ? 'closing' : 'open'))
+  }
+
+  const insertSpecialText = (display: string) => {
+    const textarea = pageTextAreaRef.current
+    const selectionStart = textarea?.selectionStart ?? activePage.text.length
+    const selectionEnd = textarea?.selectionEnd ?? selectionStart
+    const nextText = `${activePage.text.slice(0, selectionStart)}${display}${activePage.text.slice(selectionEnd)}`
+    const nextCursorPosition = selectionStart + display.length
+
+    onPageTextValueChange(activePageIndex, nextText)
+
+    window.requestAnimationFrame(() => {
+      pageTextAreaRef.current?.focus()
+      pageTextAreaRef.current?.setSelectionRange(nextCursorPosition, nextCursorPosition)
+    })
+  }
 
   const setPageTabRef = useCallback((pageId: string, node: HTMLButtonElement | null) => {
     if (node) {
@@ -311,6 +338,48 @@ function LcdControlPanelComponent({
       }
     }
   }, [recentlyDroppedPageIds])
+
+  useEffect(() => {
+    if (specialTextPanelState !== 'closing') {
+      return undefined
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setSpecialTextPanelState('closed')
+    }, 160)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [specialTextPanelState])
+
+  useEffect(() => {
+    if (specialTextPanelState !== 'open') {
+      return undefined
+    }
+
+    const closeOnOutsidePointerDown = (event: PointerEvent) => {
+      const target = event.target
+
+      if (!(target instanceof Node) || specialTextAnchorRef.current?.contains(target)) {
+        return
+      }
+
+      setSpecialTextPanelState('closing')
+    }
+
+    const closeOnEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setSpecialTextPanelState('closing')
+      }
+    }
+
+    window.addEventListener('pointerdown', closeOnOutsidePointerDown)
+    window.addEventListener('keydown', closeOnEscape)
+
+    return () => {
+      window.removeEventListener('pointerdown', closeOnOutsidePointerDown)
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [specialTextPanelState])
 
   return (
     <div
@@ -504,9 +573,54 @@ function LcdControlPanelComponent({
             ))}
           </div>
         ) : (
-          <label className="lcd-field">
-            <span>Text</span>
+          <div className="lcd-field lcd-text-field">
+            <span className="lcd-field-heading-row">
+              <span>Text</span>
+              <span ref={specialTextAnchorRef} className="lcd-special-text-anchor">
+                <button
+                  type="button"
+                  className={`lcd-special-text-toggle${isSpecialTextOpen ? ' lcd-special-text-toggle-active' : ''}`}
+                  onClick={toggleSpecialTextPanel}
+                  disabled={isPlaybackLocked}
+                  aria-label={isSpecialTextOpen ? 'Hide special text' : 'Show special text'}
+                  aria-expanded={isSpecialTextOpen}
+                  title="Special text"
+                >
+                  <SmilePlus aria-hidden="true" />
+                </button>
+                {isSpecialTextPanelVisible ? (
+                  <div
+                    className={`lcd-special-text-panel ${
+                      specialTextPanelState === 'closing' ? 'lcd-special-text-panel-closing' : ''
+                    }`}
+                    aria-label="Special text"
+                  >
+                    {SPECIAL_TEXT_GROUPS.map((group) => (
+                      <div key={group.label} className="lcd-special-text-group">
+                        <span className="lcd-special-text-group-label">{group.label}</span>
+                        <div className="lcd-special-text-grid">
+                          {group.items.map((item) => (
+                            <button
+                              key={`${group.label}-${item.label}`}
+                              type="button"
+                              className="lcd-special-text-item"
+                              onClick={() => insertSpecialText(item.display)}
+                              disabled={isPlaybackLocked}
+                              title={`${item.label} / code ${item.code}`}
+                              aria-label={`${item.label}, code ${item.code}`}
+                            >
+                              {item.display}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </span>
+            </span>
             <textarea
+              ref={pageTextAreaRef}
               rows={Math.max(rows + 2, 5)}
               value={activePage.text}
               disabled={isPlaybackLocked}
@@ -514,7 +628,7 @@ function LcdControlPanelComponent({
               placeholder={LCD_TEXT_PLACEHOLDER}
               spellCheck={false}
             />
-          </label>
+          </div>
         )}
       </div>
     </div>

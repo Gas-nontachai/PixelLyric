@@ -213,4 +213,20 @@ describe('serializeProjectInoContent', () => {
     expect(content).toContain('{ "Say \\"Hi\\"", "Path \\\\ Demo" }')
     expect(content).toContain('const unsigned long pageDurations[PAGE_COUNT]')
   })
+
+  it('exports special text as LCD byte codes instead of raw Unicode strings', () => {
+    const content = serializeProjectInoContent(createDocument({
+      pages: [
+        createPage({
+          text: '♥→█',
+        }),
+      ],
+    }))
+
+    expect(content).toContain('const uint8_t pageLines[PAGE_COUNT][SCREEN_ROWS][MAX_LINE_BYTES]')
+    expect(content).toContain('{ 3, 126, 255')
+    expect(content).toContain('lcd.write((uint8_t)getPageLineByte')
+    expect(content).not.toContain('lcd.print(fitRow(String(pageLines[pageIndex][rowIndex])))')
+    expect(content).not.toContain('"♥→█"')
+  })
 })

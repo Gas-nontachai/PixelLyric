@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { DEFAULT_DURATION_MS, DEFAULT_TEXT } from '@/configs/lcd'
+import { FONT } from '@/configs/lcd-font'
 import {
   autoWrapTextareaValue,
   createBlankPage,
@@ -107,13 +108,13 @@ describe('lcd utilities', () => {
     expect(defaultPages).toHaveLength(2)
     expect(defaultPages[0]).toMatchObject({
       text: 'hello',
-      durationMs: 500,
+      durationMs: 1000,
       durationUnit: 'ms',
       rowTexts: ['', ''],
     })
     expect(defaultPages[1]).toMatchObject({
       text: 'Pixelyric',
-      durationMs: DEFAULT_DURATION_MS,
+      durationMs: 1000,
       durationUnit: 'ms',
       rowTexts: ['', ''],
     })
@@ -178,5 +179,13 @@ describe('lcd utilities', () => {
 
     expect(scrollLeftRows).toEqual(['O   ', 'E   '])
     expect(scrollRightRows).toEqual(['O   ', 'E   '])
+  })
+
+  it('includes glyphs for special text preview characters', () => {
+    const fontMap = FONT as Record<string, unknown>
+
+    expect(fontMap['♥']).toBeDefined()
+    expect(fontMap['→']).toBeDefined()
+    expect(fontMap['█']).toBeDefined()
   })
 })
