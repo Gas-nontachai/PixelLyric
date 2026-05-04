@@ -656,6 +656,12 @@ function renderArduinoSectionComment(title: string, description?: string) {
     : `// ${title}`
 }
 
+function renderScrollTimingConfig(model: ArduinoExportModel) {
+  return model.usesScroll
+    ? '\nconst unsigned long MIN_SCROLL_FRAME_MS = 90UL; // Increase to 120UL if your LCD I2C module flickers or drops characters.'
+    : ''
+}
+
 function renderArduinoPageRows(page: ArduinoExportPage) {
   const rows = page.rows
     .map((rowText) => `"${escapeArduinoString(rowText)}"`)
@@ -970,85 +976,36 @@ void writeScrollWindow(uint8_t pageIndex, uint8_t rowIndex, uint16_t windowStart
 
 void renderScrollPage(uint8_t pageIndex, bool scrollRight, unsigned long durationMs) {
   uint16_t maxSteps = 1;
+  uint16_t rowStepsByIndex[SCREEN_ROWS];
+  uint16_t previousWindowStarts[SCREEN_ROWS];
 
   for (uint8_t rowIndex = 0; rowIndex < SCREEN_ROWS; rowIndex++) {
     const uint16_t sourceLength = SCREEN_COLS + pageLineLengths[pageIndex][rowIndex] + SCREEN_COLS;
     const uint16_t rowSteps = sourceLength >= SCREEN_COLS ? sourceLength - SCREEN_COLS + 1 : 1;
+    rowStepsByIndex[rowIndex] = rowSteps;
+    previousWindowStarts[rowIndex] = 65535;
     maxSteps = rowSteps > maxSteps ? rowSteps : maxSteps;
   }
 
   lcd.clear();
-  const unsigned long pageStartMs = millis();
+  const unsigned long stepDelayMs = max(MIN_SCROLL_FRAME_MS, durationMs / maxSteps);
 
-  if (durationMs < maxSteps) {
+  for (uint16_t renderedStep = 0; renderedStep < maxSteps; renderedStep++) {
     for (uint8_t rowIndex = 0; rowIndex < SCREEN_ROWS; rowIndex++) {
-      const uint16_t sourceLength = SCREEN_COLS + pageLineLengths[pageIndex][rowIndex] + SCREEN_COLS;
-      const uint16_t rowSteps = sourceLength >= SCREEN_COLS ? sourceLength - SCREEN_COLS + 1 : 1;
-      const uint16_t windowStart = scrollRight ? 0 : rowSteps - 1;
-
-      lcd.setCursor(0, rowIndex);
-      writeScrollWindow(pageIndex, rowIndex, windowStart);
-    }
-
-    delay(durationMs);
-    return;
-  }
-
-  uint16_t renderedStep = 0;
-  bool hasRenderedStep = false;
-
-  while (renderedStep < maxSteps) {
-    const unsigned long elapsedMs = millis() - pageStartMs;
-
-    if (elapsedMs >= durationMs) {
-      break;
-    }
-
-    uint16_t targetStep = (elapsedMs * maxSteps) / durationMs;
-
-    if (targetStep > maxSteps - 1) {
-      targetStep = maxSteps - 1;
-    }
-
-    if (targetStep == renderedStep && hasRenderedStep) {
-      delay(1);
-      continue;
-    }
-
-    renderedStep = targetStep;
-    hasRenderedStep = true;
-
-    for (uint8_t rowIndex = 0; rowIndex < SCREEN_ROWS; rowIndex++) {
-      const uint16_t sourceLength = SCREEN_COLS + pageLineLengths[pageIndex][rowIndex] + SCREEN_COLS;
-      const uint16_t rowSteps = sourceLength >= SCREEN_COLS ? sourceLength - SCREEN_COLS + 1 : 1;
+      const uint16_t rowSteps = rowStepsByIndex[rowIndex];
       const uint16_t scaledStep = rowSteps <= 1 || maxSteps <= 1
         ? 0
         : (renderedStep * (rowSteps - 1)) / (maxSteps - 1);
       const uint16_t windowStart = scrollRight ? (rowSteps - 1) - scaledStep : scaledStep;
 
-      lcd.setCursor(0, rowIndex);
-      writeScrollWindow(pageIndex, rowIndex, windowStart);
+      if (windowStart != previousWindowStarts[rowIndex]) {
+        lcd.setCursor(0, rowIndex);
+        writeScrollWindow(pageIndex, rowIndex, windowStart);
+        previousWindowStarts[rowIndex] = windowStart;
+      }
     }
-  }
 
-  const uint16_t finalStep = maxSteps - 1;
-
-  for (uint8_t rowIndex = 0; rowIndex < SCREEN_ROWS; rowIndex++) {
-    const uint16_t sourceLength = SCREEN_COLS + pageLineLengths[pageIndex][rowIndex] + SCREEN_COLS;
-    const uint16_t rowSteps = sourceLength >= SCREEN_COLS ? sourceLength - SCREEN_COLS + 1 : 1;
-    const uint16_t scaledStep = rowSteps <= 1 || maxSteps <= 1
-      ? 0
-      : (finalStep * (rowSteps - 1)) / (maxSteps - 1);
-    const uint16_t windowStart = scrollRight ? (rowSteps - 1) - scaledStep : scaledStep;
-
-    lcd.setCursor(0, rowIndex);
-    writeScrollWindow(pageIndex, rowIndex, windowStart);
-  }
-
-  const unsigned long remainingMs = durationMs - min(durationMs, millis() - pageStartMs);
-
-  if (remainingMs > 0) {
-    delay(remainingMs);
+    delay(stepDelayMs);
   }
 }`
 }
@@ -1152,6 +1109,20 @@ function renderTypewriterPageHelper() {
 function renderBuildScrollSourceHelper() {
   return `String buildScrollSource(const String& rowText) {
   return repeatSpaces(SCREEN_COLS) + rowText + repeatSpaces(SCREEN_COLS);
+}
+
+char getScrollSourceChar(const String& source, uint16_t sourceIndex) {
+  if (sourceIndex < source.length()) {
+    return source.charAt(sourceIndex);
+  }
+
+  return ' ';
+}
+
+void writeScrollWindow(const String& source, uint16_t windowStart) {
+  for (uint8_t columnIndex = 0; columnIndex < SCREEN_COLS; columnIndex++) {
+    lcd.print(getScrollSourceChar(source, windowStart + columnIndex));
+  }
 }`
 }
 
@@ -1159,87 +1130,38 @@ function renderScrollPageHelper() {
   return `void renderScrollPage(uint8_t pageIndex, bool scrollRight, unsigned long durationMs) {
   String scrollSources[SCREEN_ROWS];
   uint16_t maxSteps = 1;
+  uint16_t rowStepsByIndex[SCREEN_ROWS];
+  uint16_t previousWindowStarts[SCREEN_ROWS];
   const PageConfig& page = pages[pageIndex];
 
   for (uint8_t rowIndex = 0; rowIndex < SCREEN_ROWS; rowIndex++) {
     scrollSources[rowIndex] = buildScrollSource(String(page.rows[rowIndex]));
     const uint16_t rowLength = scrollSources[rowIndex].length();
     const uint16_t rowSteps = rowLength >= SCREEN_COLS ? rowLength - SCREEN_COLS + 1 : 1;
+    rowStepsByIndex[rowIndex] = rowSteps;
+    previousWindowStarts[rowIndex] = 65535;
     maxSteps = rowSteps > maxSteps ? rowSteps : maxSteps;
   }
 
   lcd.clear();
-  const unsigned long pageStartMs = millis();
+  const unsigned long stepDelayMs = max(MIN_SCROLL_FRAME_MS, durationMs / maxSteps);
 
-  if (durationMs < maxSteps) {
+  for (uint16_t renderedStep = 0; renderedStep < maxSteps; renderedStep++) {
     for (uint8_t rowIndex = 0; rowIndex < SCREEN_ROWS; rowIndex++) {
-      const uint16_t rowLength = scrollSources[rowIndex].length();
-      const uint16_t rowSteps = rowLength >= SCREEN_COLS ? rowLength - SCREEN_COLS + 1 : 1;
-      const uint16_t windowStart = scrollRight ? 0 : rowSteps - 1;
-
-      lcd.setCursor(0, rowIndex);
-      lcd.print(scrollSources[rowIndex].substring(windowStart, windowStart + SCREEN_COLS));
-    }
-
-    delay(durationMs);
-    return;
-  }
-
-  uint16_t renderedStep = 0;
-  bool hasRenderedStep = false;
-
-  while (renderedStep < maxSteps) {
-    const unsigned long elapsedMs = millis() - pageStartMs;
-
-    if (elapsedMs >= durationMs) {
-      break;
-    }
-
-    uint16_t targetStep = (elapsedMs * maxSteps) / durationMs;
-
-    if (targetStep > maxSteps - 1) {
-      targetStep = maxSteps - 1;
-    }
-
-    if (targetStep == renderedStep && hasRenderedStep) {
-      delay(1);
-      continue;
-    }
-
-    renderedStep = targetStep;
-    hasRenderedStep = true;
-
-    for (uint8_t rowIndex = 0; rowIndex < SCREEN_ROWS; rowIndex++) {
-      const uint16_t rowLength = scrollSources[rowIndex].length();
-      const uint16_t rowSteps = rowLength >= SCREEN_COLS ? rowLength - SCREEN_COLS + 1 : 1;
+      const uint16_t rowSteps = rowStepsByIndex[rowIndex];
       const uint16_t scaledStep = rowSteps <= 1 || maxSteps <= 1
         ? 0
         : (renderedStep * (rowSteps - 1)) / (maxSteps - 1);
       const uint16_t windowStart = scrollRight ? (rowSteps - 1) - scaledStep : scaledStep;
 
-      lcd.setCursor(0, rowIndex);
-      lcd.print(scrollSources[rowIndex].substring(windowStart, windowStart + SCREEN_COLS));
+      if (windowStart != previousWindowStarts[rowIndex]) {
+        lcd.setCursor(0, rowIndex);
+        writeScrollWindow(scrollSources[rowIndex], windowStart);
+        previousWindowStarts[rowIndex] = windowStart;
+      }
     }
-  }
 
-  const uint16_t finalStep = maxSteps - 1;
-
-  for (uint8_t rowIndex = 0; rowIndex < SCREEN_ROWS; rowIndex++) {
-    const uint16_t rowLength = scrollSources[rowIndex].length();
-    const uint16_t rowSteps = rowLength >= SCREEN_COLS ? rowLength - SCREEN_COLS + 1 : 1;
-    const uint16_t scaledStep = rowSteps <= 1 || maxSteps <= 1
-      ? 0
-      : (finalStep * (rowSteps - 1)) / (maxSteps - 1);
-    const uint16_t windowStart = scrollRight ? (rowSteps - 1) - scaledStep : scaledStep;
-
-    lcd.setCursor(0, rowIndex);
-    lcd.print(scrollSources[rowIndex].substring(windowStart, windowStart + SCREEN_COLS));
-  }
-
-  const unsigned long remainingMs = durationMs - min(durationMs, millis() - pageStartMs);
-
-  if (remainingMs > 0) {
-    delay(remainingMs);
+    delay(stepDelayMs);
   }
 }`
 }
@@ -1465,6 +1387,7 @@ const uint8_t SCREEN_COLS = ${model.screenColumns};
 const uint8_t SCREEN_ROWS = ${model.screenRows};
 const uint8_t PAGE_COUNT = ${model.pageCount};
 const uint8_t START_COUNTDOWN_SECONDS = ${model.countdownSeconds};
+${renderScrollTimingConfig(model)}
 
 LiquidCrystal_I2C lcd(LCD_ADDRESS, SCREEN_COLS, SCREEN_ROWS);
 
@@ -1502,6 +1425,7 @@ const uint8_t SCREEN_COLS = ${model.screenColumns};
 const uint8_t SCREEN_ROWS = ${model.screenRows};
 const uint8_t PAGE_COUNT = ${model.pageCount};
 const uint8_t START_COUNTDOWN_SECONDS = ${model.countdownSeconds};
+${renderScrollTimingConfig(model)}
 
 LiquidCrystal_I2C lcd(LCD_ADDRESS, SCREEN_COLS, SCREEN_ROWS);
 

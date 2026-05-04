@@ -134,9 +134,14 @@ describe('serializeProjectInoContent', () => {
     expect(content).toContain('ANIMATION_SCROLL_RIGHT = 3')
     expect(content).toContain('renderScrollPage(pageIndex, page.animation == ANIMATION_SCROLL_RIGHT, durationMs);')
     expect(content).toContain('String buildScrollSource(const String& rowText)')
+    expect(content).toContain('const unsigned long MIN_SCROLL_FRAME_MS = 90UL;')
+    expect(content).toContain('const unsigned long stepDelayMs = max(MIN_SCROLL_FRAME_MS, durationMs / maxSteps);')
+    expect(content).toContain('void writeScrollWindow(const String& source, uint16_t windowStart)')
+    expect(content).toContain('previousWindowStarts[rowIndex] = 65535;')
+    expect(content).toContain('delay(stepDelayMs);')
     expect(content).toContain('struct PageConfig')
-    expect(content).toContain('const unsigned long pageStartMs = millis();')
-    expect(content).toContain('uint16_t targetStep = (elapsedMs * maxSteps) / durationMs;')
+    expect(content).not.toContain('uint16_t targetStep = (elapsedMs * maxSteps) / durationMs;')
+    expect(content).not.toContain('scrollSources[rowIndex].substring')
     expect(content).not.toContain('const unsigned long stepDelayMs = max(40UL, durationMs / maxSteps);')
     expect(content).not.toContain('for (uint16_t stepIndex = 0; stepIndex < maxSteps; stepIndex++) {\n    lcd.clear();')
     expect(content).not.toContain('const unsigned long pageDurations[PAGE_COUNT]')
@@ -168,6 +173,7 @@ describe('serializeProjectInoContent', () => {
     expect(content).toContain('const uint8_t SCREEN_COLS = 20;')
     expect(content).toContain('const uint8_t SCREEN_ROWS = 4;')
     expect(content).toContain('const uint8_t START_COUNTDOWN_SECONDS = 5;')
+    expect(content).toContain('const unsigned long MIN_SCROLL_FRAME_MS = 90UL;')
     expect(content).toContain('ANIMATION_TYPEWRITER = 1')
     expect(content).toContain('ANIMATION_SCROLL_LEFT = 2')
     expect(content).toContain('ANIMATION_SCROLL_RIGHT = 3')
@@ -181,6 +187,7 @@ describe('serializeProjectInoContent', () => {
     expect(content).toContain('runCountdown();')
     expect(content).toContain('struct PageConfig')
     expect(content).toContain('renderStaticPage(pageIndex);')
+    expect(content).toContain('const unsigned long stepDelayMs = max(MIN_SCROLL_FRAME_MS, durationMs / maxSteps);')
     expect(content).toContain('const unsigned long remainingMs = durationMs - min(durationMs, millis() - pageStartMs);')
     expect(content).not.toContain('const unsigned long pageDurations[PAGE_COUNT]')
     expect(content).not.toContain('max(25UL')
@@ -233,6 +240,27 @@ describe('serializeProjectInoContent', () => {
     expect(content).toContain('lcd.write((uint8_t)getPageLineByte')
     expect(content).not.toContain('lcd.print(fitRow(String(pageLines[pageIndex][rowIndex])))')
     expect(content).not.toContain('"♥→█"')
+  })
+
+  it('paces special-text scroll exports for slower LCD I2C hardware', () => {
+    const content = serializeProjectInoContent(createDocument({
+      pages: [
+        createPage({
+          animation: 'scroll-left',
+          durationMs: 800,
+          mode: 'scroll',
+          rowTexts: ['♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥', ''],
+          text: '',
+        }),
+      ],
+    }))
+
+    expect(content).toContain('const unsigned long MIN_SCROLL_FRAME_MS = 90UL;')
+    expect(content).toContain('const unsigned long stepDelayMs = max(MIN_SCROLL_FRAME_MS, durationMs / maxSteps);')
+    expect(content).toContain('void writeScrollWindow(uint8_t pageIndex, uint8_t rowIndex, uint16_t windowStart)')
+    expect(content).toContain('previousWindowStarts[rowIndex] = 65535;')
+    expect(content).toContain('delay(stepDelayMs);')
+    expect(content).not.toContain('uint16_t targetStep = (elapsedMs * maxSteps) / durationMs;')
   })
 
   it('exports custom emoji with page-local CGRAM slots', () => {
